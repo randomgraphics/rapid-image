@@ -192,9 +192,9 @@ static inline uint32_t fromFloat(float value, uint32_t width, PixelFormat::Sign 
         } else if (width == 16) {
             if (value == 0.0f)
                 return 0u;
-            else if (isnan(value))
+            else if (std::isnan(value))
                 return ~0u;
-            else if (isinf(value)) {
+            else if (std::isinf(value)) {
                 if (value > 0.0f)
                     return 0x1Fu << 10u;
                 else
@@ -207,9 +207,9 @@ static inline uint32_t fromFloat(float value, uint32_t width, PixelFormat::Sign 
         } else if (width == 11) {
             if (value == 0.0f)
                 return 0u;
-            else if (isnan(value))
+            else if (std::isnan(value))
                 return ~0u;
-            else if (isinf(value))
+            else if (std::isinf(value))
                 return 0x1Fu << 6u;
             uint32_t u32 = castFromFloat(value);
             return ((((u32 & 0x7f800000) - 0x38000000) >> 17) & 0x07c0) | // exponential
@@ -217,9 +217,9 @@ static inline uint32_t fromFloat(float value, uint32_t width, PixelFormat::Sign 
         } else if (width == 10) {
             if (value == 0.0f)
                 return 0u;
-            else if (isnan(value))
+            else if (std::isnan(value))
                 return ~0u;
-            else if (isinf(value))
+            else if (std::isinf(value))
                 return 0x1Fu << 5u;
             uint32_t u32 = castFromFloat(value);
             return ((((u32 & 0x7f800000) - 0x38000000) >> 18) & 0x03E0) | // exponential
@@ -383,8 +383,9 @@ static void convertToRGBA8(RGBA8 * result, const PixelFormat::LayoutDesc & ld, c
     } else if (1 == ld.blockWidth && 1 == ld.blockHeight) {
         // this is the general case that could in theory handle any format.
         auto f4 = convertNonCompressedPixelToFloat4(ld, format, src);
-        *result = RGBA8::make((uint8_t) clamp<uint32_t>((uint32_t) (f4.x * 255.0f), 0, 255), (uint8_t) clamp<uint32_t>((uint32_t) (f4.y * 255.0f), 0, 255),
-                              (uint8_t) clamp<uint32_t>((uint32_t) (f4.z * 255.0f), 0, 255), (uint8_t) clamp<uint32_t>((uint32_t) (f4.w * 255.0f), 0, 255));
+        *result =
+            RGBA8::make((uint8_t) std::clamp<uint32_t>((uint32_t) (f4.x * 255.0f), 0, 255), (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.y * 255.0f), 0, 255),
+                        (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.z * 255.0f), 0, 255), (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.w * 255.0f), 0, 255));
     } else if (PixelFormat::FIRST_ASTC_LAYOUT <= format.layout && format.layout <= PixelFormat::LAST_ASTC_LAYOUT) {
         // decompress ASTC block
         RII_THROW("NOT IMPLEMENTED");
@@ -393,7 +394,7 @@ static void convertToRGBA8(RGBA8 * result, const PixelFormat::LayoutDesc & ld, c
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-float PixelFormat::getPixelChannelFloat(const uint8_t * pixel, size_t channel) {
+float PixelFormat::getPixelChannelFloat(const void * pixel, size_t channel) {
     // Get the swizzle for the desired channel.
     unsigned int swizzle;
     switch (channel) {
@@ -430,16 +431,6 @@ float PixelFormat::getPixelChannelFloat(const uint8_t * pixel, size_t channel) {
     return tofloat(src.segment(channelDesc.shift, channelDesc.bits), channelDesc.bits, sign);
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-//
-uint8_t PixelFormat::getPixelChannelByte(const uint8_t * pixel, size_t channel) {
-    // Get the normalized float value.
-    float value = getPixelChannelFloat(pixel, channel);
-
-    // Remap it to range [0, 255] and cast it to a byte.
-    return (uint8_t) clamp<uint32_t>((uint32_t) (value * 255.0f), 0, 255);
-}
-
 struct StbiStream {
     std::ostream & stream;
 
@@ -455,42 +446,6 @@ struct StbiStream {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-void ImagePlaneDesc::saveToPNG(std::ostream & stream, const void * pixels) const {
-    auto colors = toRGBA8(pixels);
-    if (colors.empty()) return;
-    StbiStream ss(stream);
-    if (!stbi_write_png_to_func(StbiStream::write, &ss, (int) width, (int) height, 4, colors.data(), 0)) {
-        RAPID_IMAGE_LOGE("fail to write image to PNG stream.");
-        return;
-    }
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
-//
-void ImagePlaneDesc::saveToJPG(std::ostream & stream, const void * pixels, int quality) const {
-    auto colors = toRGBA8(pixels);
-    if (colors.empty()) return;
-    StbiStream ss(stream);
-    if (!stbi_write_jpg_to_func(StbiStream::write, &ss, (int) width, (int) height, 4, colors.data(), quality)) {
-        RAPID_IMAGE_LOGE("fail to write image to JPG stream.");
-        return;
-    }
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
-//
-void ImagePlaneDesc::saveToHDR(std::ostream & stream, const void * pixels) const {
-    auto colors = toFloat4(pixels);
-    if (colors.empty()) return;
-    StbiStream ss(stream);
-    if (!stbi_write_hdr_to_func(StbiStream::write, &ss, (int) width, (int) height, 4, (const float *) colors.data())) {
-        RAPID_IMAGE_LOGE("fail to write image to HDR stream.");
-        return;
-    }
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
-//
 void ImagePlaneDesc::saveToRAW(std::ostream & stream, const void * pixels) const {
     constexpr size_t PLANE_SIZE = sizeof(*this);
     static_assert(PLANE_SIZE <= 256, "we currently only reserved 256 bytes for plane descriptor.");
@@ -499,28 +454,28 @@ void ImagePlaneDesc::saveToRAW(std::ostream & stream, const void * pixels) const
     stream.write((const char *) pixels, this->size);
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-//
-void ImagePlaneDesc::save(const std::string & filename, const void * pixels) const {
-    std::ofstream file(filename, std::ios::binary);
-    if (!file) {
-        RAPID_IMAGE_LOGE("failed to open file %s for writing.", filename.c_str());
-        return;
-    }
-    auto ext = fs::path(filename).extension().string();
-    std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) { return (char) tolower(c); });
-    if (".jpg" == ext || ".jpeg" == ext) {
-        saveToJPG(file, pixels);
-    } else if (".png" == ext) {
-        saveToPNG(file, pixels);
-    } else if (".hdr" == ext) {
-        saveToHDR(file, pixels);
-    } else if (".raw" == ext) {
-        saveToRAW(file, pixels);
-    } else {
-        RAPID_IMAGE_LOGE("Unsupported file extension: %s", ext.c_str());
-    }
-}
+// // ---------------------------------------------------------------------------------------------------------------------
+// //
+// void ImagePlaneDesc::save(const std::string & filename, const void * pixels) const {
+//     std::ofstream file(filename, std::ios::binary);
+//     if (!file) {
+//         RAPID_IMAGE_LOGE("failed to open file %s for writing.", filename.c_str());
+//         return;
+//     }
+//     auto ext = fs::path(filename).extension().string();
+//     std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) { return (char) tolower(c); });
+//     if (".jpg" == ext || ".jpeg" == ext) {
+//         saveToJPG(file, pixels);
+//     } else if (".png" == ext) {
+//         saveToPNG(file, pixels);
+//     } else if (".hdr" == ext) {
+//         saveToHDR(file, pixels);
+//     } else if (".raw" == ext) {
+//         saveToRAW(file, pixels);
+//     } else {
+//         RAPID_IMAGE_LOGE("Unsupported file extension: %s", ext.c_str());
+//     }
+// }
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
