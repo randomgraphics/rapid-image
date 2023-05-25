@@ -25,6 +25,9 @@ SOFTWARE.
 #ifndef RAPID_IMAGE_H_
 #define RAPID_IMAGE_H_
 
+// ---------------------------------------------------------------------------------------------------------------------
+// User configurable macros
+
 /// A monotonically increasing number that uniquely identify the revision of the header.
 #define RAPID_IMAGE_HEADER_REVISION 1
 
@@ -40,12 +43,79 @@ SOFTWARE.
 #define RAPID_IMAGE_ENABLE_DEBUG_BUILD 0
 #endif
 
+/// \def RAPID_IMAGE_THROW
+/// The macro to throw runtime exception.
+#ifndef RAPID_IMAGE_THROW
+#define RAPID_IMAGE_THROW(...) throw std::runtime_error(__VA_ARGS__)
+#endif
+
+/// \def RAPID_IMAGE_BACKTRACE
+/// Define custom function to retrieve current call stack and store in std::string.
+/// This macro is called when rapid-image encounters critical error, to help
+/// quickly identify the source of the error. The default implementation does
+/// nothing but return empty string.
+#ifndef RAPID_IMAGE_BACKTRACE
+#define RAPID_IMAGE_BACKTRACE() std::string("You have to define RAPID_IMAGE_BACKTRACE to retrieve current callstack.")
+#endif
+
+/// \def RAPID_IMAGE_LOGE
+/// The macro to log error message. The default implementation prints to stderr.
+#ifndef RAPID_IMAGE_LOGE
+#define RAPID_IMAGE_LOGE(...)          \
+    do {                               \
+        fprintf(stderr, "[ ERROR ] "); \
+        fprintf(stderr, __VA_ARGS__);  \
+        fprintf(stderr, "\n");         \
+    } while (false)
+#endif
+
+/// \def RAPID_IMAGE_LOGW
+/// The macro to log warning message. The default implementation prints to stderr.
+#ifndef RAPID_IMAGE_LOGW
+#define RAPID_IMAGE_LOGW(...)          \
+    do {                               \
+        fprintf(stderr, "[WARNING] "); \
+        fprintf(stderr, __VA_ARGS__);  \
+        fprintf(stderr, "\n");         \
+    } while (false)
+#endif
+
+/// \def RAPID_IMAGE_LOGI
+/// The macro to log informational message. The default implementation prints to stdout.
+#ifndef RAPID_IMAGE_LOGI
+#define RAPID_IMAGE_LOGI(...)         \
+    do {                              \
+        fprintf(stdout, __VA_ARGS__); \
+        fprintf(stdout, "\n");        \
+    } while (false)
+#endif
+
+/// \def RII_ASSERT
+/// The runtime assert macro for debug build only. This macro has no effect when
+/// RAPID_IMAGE_ENABLE_DEBUG_BUILD is 0.
+#ifndef RAPID_IMAGE_ASSERT
+#define RAPID_IMAGE_ASSERT(expression, ...)                                                \
+    if (!(expression)) {                                                                   \
+        auto errorMessage__ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);                  \
+        RAPID_IMAGE_LOGE("Condition " #expression " not met. %s", errorMessage__.c_str()); \
+        assert(false);                                                                     \
+    } else                                                                                 \
+        void(0)
+#endif
+
+// ---------------------------------------------------------------------------------------------------------------------
+// include system headers.
+
+#include <cassert>
+#include <cstdint>
 #include <string>
 #include <vector>
-#include <cstdint>
+#include <algorithm>
+#include <exception>
 
-/// endianness
-//@{
+// ---------------------------------------------------------------------------------------------------------------------
+// internal macros
+
 #if defined(_PPC_) || defined(__BIG_ENDIAN__)
 #define RII_LITTLE_ENDIAN 0
 #define RII_BIG_ENDIAN    1
@@ -53,16 +123,51 @@ SOFTWARE.
 #define RII_LITTLE_ENDIAN 1
 #define RII_BIG_ENDIAN    0
 #endif
-//@}
+
+#define RII_NO_COPY(T)                 \
+    T(const T &)             = delete; \
+    T & operator=(const T &) = delete;
+
+#define RII_NO_MOVE(T)            \
+    T(T &&)             = delete; \
+    T & operator=(T &&) = delete;
+
+#define RII_NO_COPY_NO_MOVE(T) RII_NO_COPY(T) RII_NO_MOVE(T)
+
+#define RII_STR(x) RII_STR_HELPER(x)
+
+#define RII_STR_HELPER(x) #x
+
+#define RII_THROW(...)                                                                               \
+    do {                                                                                             \
+        std::stringstream ss___;                                                                     \
+        ss___ << __FILE__ << "(" << __LINE__ << "): " << RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__); \
+        RAPID_IMAGE_LOGE("%s", ss___.str().data());                                                  \
+        RAPID_IMAGE_THROW(ss___.str());                                                              \
+    } while (false)
+
+#if RAPID_IMAGE_ENABLE_DEBUG_BUILD
+// assert is enabled only in debug build
+#define RII_ASSERT RAPID_IMAGE_ASSERT
+#else
+#define RII_ASSERT(...) ((void) 0)
+#endif
+
+#define RII_REQUIRE(condition, ...)                                                    \
+    do {                                                                               \
+        if (!(condition)) {                                                            \
+            auto errorMessage__ = RAPID_VULKAN_NAMESPACE::format(__VA_ARGS__);         \
+            RII_THROW("Condition " #condition " not met: %s", errorMessage__.c_str()); \
+        }                                                                              \
+    } while (false)
+
+// ---------------------------------------------------------------------------------------------------------------------
+// beginning of rapid-image namespace
 
 namespace RAPID_IMAGE_NAMESPACE {
 
-///
-/// Pixel format structure
-///
+/// @brief Pixel format structure
 union PixelFormat {
-    /// @ pixel format data fields
-    //@{
     struct {
 #if RII_LITTLE_ENDIAN
         /// @brief Defines pixel layout. See \ref Layout for details.
@@ -89,7 +194,6 @@ union PixelFormat {
 #endif
     };
     uint32_t u32; ///< pixel format as unsigned integer
-    //@}
 
     /// @\brief Pixel layout. Defines number of channels in the layout, and number of bits in each channel.
     ///
@@ -600,7 +704,7 @@ static_assert(PixelFormat::RGBA8().valid(), "RGBA8 format must be valid.");
 static_assert(!PixelFormat::RGBA8().empty(), "RGBA8 format must _NOT_ be empty.");
 static_assert(PixelFormat::ASTC_12x12_SFLOAT().valid(), "ASTC_12x12_SFLOAT must be a valid format.");
 
-// Helper constexpr functions to count bits at compile time.
+// Helper functions and structs to count bits at compile time.
 namespace BitFieldDetails {
 template<typename T>
 constexpr auto getBitsCount(T data, size_t startBit = 0) -> typename std::enable_if<std::is_unsigned<T>::value, size_t>::type {
@@ -658,17 +762,15 @@ constexpr StructType getFilledStruct() {
 } // namespace BitFieldDetails
 
 // Get bit field size at compile time
-#define RVI_GET_BIT_FIELD_WIDTH(structType, fieldName) \
+#define RII_GET_BIT_FIELD_WIDTH(structType, fieldName) \
     BitFieldDetails::getBitsCount(BitFieldDetails::getFilledStruct<structType, decltype(structType {}.fieldName)>().fieldName)
 
 // Make sure that all layouts can fit into the PixelFormat::layout field. If this assert fails, then we have defined more
 // layouts then the PixelFormat::layout field can hold. In this case, you either need to delete some layouts, or increase
 // size of PixelFormat::layout field.
-static_assert(PixelFormat::NUM_COLOR_LAYOUTS < (1u << RVI_GET_BIT_FIELD_WIDTH(PixelFormat, layout)), "");
+static_assert(PixelFormat::NUM_COLOR_LAYOUTS < (1u << RII_GET_BIT_FIELD_WIDTH(PixelFormat, layout)), "");
 
-///
-/// compose RGBA8 color constant
-///
+/// @brief compose RGBA8 color constant
 template<typename T>
 inline constexpr uint32_t makeRGBA8(T r, T g, T b, T a) {
     // clang-format off
@@ -680,9 +782,7 @@ inline constexpr uint32_t makeRGBA8(T r, T g, T b, T a) {
     // clang-format on
 }
 
-///
-/// compose BGRA8 color constant
-///
+/// @brief compose BGRA8 color constant
 template<typename T>
 inline constexpr uint32_t makeBGRA8(T r, T g, T b, T a) {
     // clang-format off
@@ -694,6 +794,7 @@ inline constexpr uint32_t makeBGRA8(T r, T g, T b, T a) {
     // clang-format on
 }
 
+/// @brief Represents one RGBA8 pixel
 union RGBA8 {
     struct {
         uint8_t x, y, z, w;
@@ -702,13 +803,16 @@ union RGBA8 {
         uint8_t r, g, b, a;
     };
     uint32_t u32;
+    int32_t  i32;
     uint8_t  u8[4];
+    int8_t   i8[4];
+    char     c8[4];
 
     static RGBA8 make(uint8_t r, uint8_t g = 0, uint8_t b = 0, uint8_t a = 0) { return {{r, g, b, a}}; }
 
     static RGBA8 make(float r, float g, float b, float a) {
-        return {{static_cast<uint8_t>(clamp(r, 0.f, 1.f) * 255.0f), static_cast<uint8_t>(clamp(g, 0.f, 1.f) * 255.0f),
-                 static_cast<uint8_t>(clamp(b, 0.f, 1.f) * 255.0f), static_cast<uint8_t>(clamp(a, 0.f, 1.f) * 255.0f)}};
+        return {{static_cast<uint8_t>(std::clamp(r, 0.f, 1.f) * 255.0f), static_cast<uint8_t>(std::clamp(g, 0.f, 1.f) * 255.0f),
+                 static_cast<uint8_t>(std::clamp(b, 0.f, 1.f) * 255.0f), static_cast<uint8_t>(std::clamp(a, 0.f, 1.f) * 255.0f)}};
     }
 
     static RGBA8 make(const uint8_t * p) { return {{p[0], p[1], p[2], p[3]}}; }
@@ -728,6 +832,27 @@ union RGBA8 {
 };
 static_assert(sizeof(RGBA8) == 4, "");
 
+/// @brief Represents one RGBA16F pixel
+union half4 {
+    struct {
+        uint16_t x, y, z, w;
+    };
+    struct {
+        uint16_t r, g, b, a;
+    };
+    uint16_t u16[4];
+    int16_t  i16[4];
+    uint32_t u32[2];
+    int32_t  i32[2];
+    uint64_t u64;
+    int64_t  i64;
+
+    static half4 make(uint16_t r, uint16_t g, uint16_t b, uint16_t a) { return {{r, g, b, a}}; }
+
+    static half4 make(const uint16_t * p) { return {{p[0], p[1], p[2], p[3]}}; }
+};
+
+/// @brief Represents one RGBA32F pixel
 union float4 {
     struct {
         float x, y, z, w;
@@ -735,9 +860,11 @@ union float4 {
     struct {
         float r, g, b, a;
     };
+    float    f32[4];
     uint32_t u32[4];
-    uint32_t f32[4];
+    int32_t  i32[4];
     uint64_t u64[2];
+    int64_t  i64[2];
 
     static float4 make(float r, float g, float b, float a) { return {{r, g, b, a}}; }
 
@@ -745,13 +872,11 @@ union float4 {
 };
 static_assert(sizeof(float4) == 128 / 8, "");
 
-class RawImage;
+class Image;
 
-/// This represents a single 1D/2D/3D image in an more complex image structure.
-/// Note: avoid using size_t in this structure. So the size of the structure will never change,
-/// regardless of compile platform.
+/// This represents a single 1D/2D/3D image plan. This is the building block of more complex image structures like
+/// cube/array images, mipmap chains and etc.
 struct ImagePlaneDesc {
-
     /// pixel format
     PixelFormat format = PixelFormat::UNKNOWN();
 
@@ -768,10 +893,10 @@ struct ImagePlaneDesc {
     uint32_t step = 0;
 
     /// Bytes from one row to next. Minimal valid value is (width * step) and aligned to pixel boundary.
-    /// For compressed format, this is the number of bytes in one block row.
+    /// For compressed format, this is the number of bytes in one row of pixel blocks.
     uint32_t pitch = 0;
 
-    /// Bytes from one slice to next. Minimal valid value is (pitch * height)
+    /// Bytes from one slice to next. Minimal valid value is pitch * ((height + blockHeight - 1) / blockHeight)
     uint32_t slice = 0;
 
     /// Bytes of the whole plane. Minimal valid value is (slice * depth)
@@ -785,11 +910,11 @@ struct ImagePlaneDesc {
 
     /// returns offset from start of data buffer for a particular pixel within the plane
     size_t pixel(size_t x, size_t y, size_t z = 0) const {
-        PH_ASSERT(x < width && y < height && z < depth);
+        RII_ASSERT(x < width && y < height && z < depth);
         auto & ld = format.layoutDesc();
-        PH_ASSERT((x % ld.blockWidth) == 0 && (y % ld.blockHeight) == 0);
+        RII_ASSERT((x % ld.blockWidth) == 0 && (y % ld.blockHeight) == 0);
         size_t r = z * slice + y / ld.blockHeight * pitch + x / ld.blockWidth * step;
-        PH_ASSERT(r < size);
+        RII_ASSERT(r < size);
         return r + offset;
     }
 
@@ -802,13 +927,13 @@ struct ImagePlaneDesc {
     bool operator==(const ImagePlaneDesc & rhs) const {
         // clang-format off
         return format == rhs.format
-            && width == rhs.width
+            && width  == rhs.width
             && height == rhs.height
-            && depth == rhs.depth
-            && step == rhs.step
-            && pitch == rhs.pitch
-            && slice == rhs.slice
-            && size == rhs.size
+            && depth  == rhs.depth
+            && step   == rhs.step
+            && pitch  == rhs.pitch
+            && slice  == rhs.slice
+            && size   == rhs.size
             && offset == rhs.offset;
         // clang-format on
     }
@@ -816,67 +941,27 @@ struct ImagePlaneDesc {
     bool operator!=(const ImagePlaneDesc & rhs) const { return !operator==(rhs); }
 
     bool operator<(const ImagePlaneDesc & rhs) const {
+        // clang-format off
         if (format != rhs.format) return format < rhs.format;
-        if (width != rhs.width) return width < rhs.width;
+        if (width  != rhs.width)  return width  < rhs.width;
         if (height != rhs.height) return height < rhs.height;
-        if (depth != rhs.depth) return depth < rhs.depth;
-        if (step != rhs.step) return step < rhs.step;
-        if (pitch != rhs.pitch) return pitch < rhs.pitch;
-        if (slice != rhs.slice) return slice < rhs.slice;
-        if (size != rhs.size) return size < rhs.size;
+        if (depth  != rhs.depth)  return depth  < rhs.depth;
+        if (step   != rhs.step)   return step   < rhs.step;
+        if (pitch  != rhs.pitch)  return pitch  < rhs.pitch;
+        if (slice  != rhs.slice)  return slice  < rhs.slice;
+        if (size   != rhs.size)   return size   < rhs.size;
         return offset < rhs.offset;
+        // clang-format on
     }
 
     /// Create a new image plane descriptor
     static ImagePlaneDesc make(PixelFormat format, size_t width, size_t height = 1, size_t depth = 1, size_t step = 0, size_t pitch = 0, size_t slice = 0);
 
-    /// Save the image plane to PNG stream. This method only supports 8-bit and 16-bit 2D image.
-    /// \param stream  Target stream
-    /// \param pixels  The pixel array. The buffer length should be no less than ImagePlaneDesc::size.
-    ///                Or else, the behavior is undefined.
-    /// \param z       Specify the z slice to save (only applied to 3D image)
-    void saveToPNG(std::ostream & stream, const void * pixels) const;
-
-    /// Save the image plane to PNG file.
-    template<class... ARGS>
-    void saveToPNG(const std::string & filename, ARGS... args) const {
-        auto s = openFileStream(filename);
-        saveToPNG(s, args...);
-    }
-
-    /// Save the image plane to JPG stream. Only supports 8-bit and 16-bit 2D image.
-    /// \param stream   Target stream
-    /// \param pixels   The pixel array The buffer length should be no less than ImagePlaneDesc::size.
-    /// \param z       Specify the z slice to save (only applied to 3D image)
-    /// \param quality  Compression quality. Valid range is [1, 100];
-    void saveToJPG(std::ostream & stream, const void * pixels, int quality = 100) const;
-
-    /// Save the image plane to JPB file. Only supports 8-bit and 16-bit 2D image.
-    template<class... ARGS>
-    void saveToJPG(std::string & filename, ARGS... args) const {
-        auto s = openFileStream(filename);
-        saveToJPG(s, args...);
-    }
-
-    /// Save the image to .HDR stream. This method will try convert everything to float4
-    void saveToHDR(std::ostream & stream, const void * pixels) const;
-
-    /// Save the image plane to .HDR file.
-    template<class... ARGS>
-    void saveToHDR(std::string & filename, ARGS... args) const {
-        auto s = openFileStream(filename);
-        saveToHDR(s, args...);
-    }
-
-    /// Save the image to .RAW stream.
+    /// Save the image plane to .RAW stream.
     void saveToRAW(std::ostream & stream, const void * pixels) const;
 
-    // Save the image as raw file
-    template<class... ARGS>
-    void saveToRAW(std::string & filename, ARGS... args) const {
-        auto s = openFileStream(filename);
-        saveToHDR(s, args...);
-    }
+    /// Save the image plane as .RAW file.
+    void saveToRAW(std::string & filename, const void * pixels) const { return saveToRAW(openFileStream(filename), pixels); }
 
     /// A general save function. Use extension to determine file format.
     void save(const std::string & filename, const void * pixels) const;
@@ -892,13 +977,13 @@ struct ImagePlaneDesc {
     /// Load data to specific slice of image plane from float4 data.
     void fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void * src) const;
 
-    RawImage generateMipmaps(const void * pixels) const;
+    Image generateMipmaps(const void * pixels) const;
 
 private:
     static std::ofstream openFileStream(const std::string & filename) {
         std::ofstream file(filename, std::ios::binary);
         if (!file) {
-            PH_LOGE("failed to open file %s for writing.", filename.c_str());
+            RII_LOGE("failed to open file %s for writing.", filename.c_str());
             return {};
         }
         return file;
@@ -984,34 +1069,31 @@ struct ImageDesc {
         reset(baseMap, layers, levels, order);
     }
 
-    // can copy.
-    PH_DEFAULT_COPY(ImageDesc);
-
     /// move constructor
     ImageDesc(ImageDesc && rhs) {
         planes = std::move(rhs.planes);
-        PH_ASSERT(rhs.planes.empty());
+        RII_ASSERT(rhs.planes.empty());
         layers     = rhs.layers;
         rhs.layers = 0;
         levels     = rhs.levels;
         rhs.levels = 0;
         size       = rhs.size;
         rhs.size   = 0;
-        PH_ASSERT(rhs.empty());
+        RII_ASSERT(rhs.empty());
     }
 
     /// move operator
     ImageDesc & operator=(ImageDesc && rhs) {
         if (this != &rhs) {
             planes = std::move(rhs.planes);
-            PH_ASSERT(rhs.planes.empty());
+            RII_ASSERT(rhs.planes.empty());
             layers     = rhs.layers;
             rhs.layers = 0;
             levels     = rhs.levels;
             rhs.levels = 0;
             size       = rhs.size;
             rhs.size   = 0;
-            PH_ASSERT(rhs.empty());
+            RII_ASSERT(rhs.empty());
         }
         return *this;
     }
@@ -1080,7 +1162,7 @@ struct ImageDesc {
     size_t pixel(size_t layer, size_t level, size_t x = 0, size_t y = 0, size_t z = 0) const {
         const auto & d = planes[index(layer, level)];
         auto         r = d.pixel(x, y, z);
-        PH_ASSERT(r < size);
+        RII_ASSERT(r < size);
         return r;
     }
 
@@ -1106,8 +1188,8 @@ struct ImageDesc {
 private:
     /// return plane index
     size_t index(size_t layer, size_t level) const {
-        PH_ASSERT(layer < layers);
-        PH_ASSERT(level < levels);
+        RII_ASSERT(layer < layers);
+        RII_ASSERT(level < levels);
         return (level * layers) + layer;
     }
 };
@@ -1144,30 +1226,27 @@ struct ImageProxy {
     uint8_t * pixel(size_t layer, size_t level, size_t x = 0, size_t y = 0, size_t z = 0) { return data + desc.pixel(layer, level, x, y, z); }
 };
 
-///
-/// A basic image class
-///
-class RawImage {
-
+/// @brief The image class of rapid-image library.
+class Image {
 public:
     /// \name ctor/dtor/copy/move
     //@{
-    PH_NO_COPY(RawImage);
-    RawImage() = default;
-    RawImage(ImageDesc && desc, const void * initialContent = nullptr, size_t initialContentSizeInbytes = 0);
-    RawImage(const ImageDesc & desc, const void * initialContent = nullptr, size_t initialContentSizeInbytes = 0);
-    RawImage(const ImageDesc & desc, const ConstRange<uint8_t> & initialContent);
-    RawImage(RawImage && rhs) {
+    RII_NO_COPY(Image);
+    Image() = default;
+    Image(ImageDesc && desc, const void * initialContent = nullptr, size_t initialContentSizeInbytes = 0);
+    Image(const ImageDesc & desc, const void * initialContent = nullptr, size_t initialContentSizeInbytes = 0);
+    Image(const ImageDesc & desc, const ConstRange<uint8_t> & initialContent);
+    Image(Image && rhs) {
         _proxy.desc = std::move(rhs._proxy.desc);
-        PH_ASSERT(rhs._proxy.desc.empty());
+        RII_ASSERT(rhs._proxy.desc.empty());
         _proxy.data     = rhs._proxy.data;
         rhs._proxy.data = nullptr;
     }
-    ~RawImage() { clear(); }
-    RawImage & operator=(RawImage && rhs) {
+    ~Image() { clear(); }
+    Image & operator=(Image && rhs) {
         if (this != &rhs) {
             _proxy.desc = std::move(rhs._proxy.desc);
-            PH_ASSERT(rhs._proxy.desc.empty());
+            RII_ASSERT(rhs._proxy.desc.empty());
             _proxy.data     = rhs._proxy.data;
             rhs._proxy.data = nullptr;
         }
@@ -1218,7 +1297,7 @@ public:
     void clear();
 
     /// make a clone of the current image.
-    RawImage clone() const { return RawImage(desc(), data()); }
+    Image clone() const { return Image(desc(), data()); }
 
     /// Save certain plane to disk file.
     void save(const std::string & filename, size_t layer, size_t level) const { desc().plane(layer, level).save(filename, proxy().pixel(layer, level)); }
@@ -1226,13 +1305,13 @@ public:
     /// \name Image loading utilities
     //@{
     /// Helper method to load from a binary stream.
-    static RawImage load(std::istream &);
+    static Image load(std::istream &);
 
     /// Helper method to load from a binary byte arry in memory.
-    static RawImage load(const ConstRange<uint8_t> &);
+    static Image load(const ConstRange<uint8_t> &);
 
     /// Helper method to load from a file.
-    static RawImage load(const std::string &);
+    static Image load(const std::string &);
 
 private:
     ImageProxy _proxy;
