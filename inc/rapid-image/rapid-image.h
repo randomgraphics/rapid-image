@@ -983,7 +983,7 @@ private:
     static std::ofstream openFileStream(const std::string & filename) {
         std::ofstream file(filename, std::ios::binary);
         if (!file) {
-            RII_LOGE("failed to open file %s for writing.", filename.c_str());
+            RAPID_IMAGE_LOGE("failed to open file %s for writing.", filename.c_str());
             return {};
         }
         return file;
@@ -1326,8 +1326,8 @@ namespace std {
 
 /// A functor that allows for hashing image image plane desc.
 template<>
-struct hash<ph::ImagePlaneDesc> {
-    size_t operator()(const ph::ImagePlaneDesc & key) const {
+struct hash<ImagePlaneDesc> {
+    size_t operator()(const ImagePlaneDesc & key) const {
         // Records the calculated hash of the texture handle.
         size_t hash = 7;
 
@@ -1348,8 +1348,8 @@ struct hash<ph::ImagePlaneDesc> {
 
 /// A functor that allows for hashing image descriptions.
 template<>
-struct hash<ph::ImageDesc> {
-    size_t operator()(const ph::ImageDesc & key) const {
+struct hash<ImageDesc> {
+    size_t operator()(const ImageDesc & key) const {
         // Records the calculated hash of the texture handle.
         size_t hash = 7;
 
@@ -1359,10 +1359,10 @@ struct hash<ph::ImageDesc> {
         hash = 79 * hash + (size_t) key.size;
 
         /// Allows us to hash the planes.
-        std::hash<ph::ImagePlaneDesc> planeHasher;
+        std::hash<ImagePlaneDesc> planeHasher;
 
         // Calculate the hash of the planes.
-        for (const ph::ImagePlaneDesc & plane : key.planes) { hash = 79 * hash + planeHasher(plane); }
+        for (const ImagePlaneDesc & plane : key.planes) { hash = 79 * hash + planeHasher(plane); }
 
         return hash;
     }
