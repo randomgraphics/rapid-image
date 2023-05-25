@@ -97,7 +97,7 @@ SOFTWARE.
 #define RAPID_IMAGE_ASSERT(expression, ...)                                                \
     if (!(expression)) {                                                                   \
         auto errorMessage__ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);                  \
-        RAPID_IMAGE_LOGE("Condition " #expression " not met. %s", errorMessage__.c_str()); \
+        RAPID_IMAGE_LOGE("Condition %s not met. %s", #expression, errorMessage__.c_str()); \
         assert(false);                                                                     \
     } else                                                                                 \
         void(0)
@@ -108,8 +108,11 @@ SOFTWARE.
 
 #include <cassert>
 #include <cstdint>
+#include <cmath>
 #include <string>
 #include <vector>
+#include <fstream>
+#include <sstream>
 #include <algorithm>
 #include <exception>
 
@@ -166,6 +169,44 @@ SOFTWARE.
 
 namespace RAPID_IMAGE_NAMESPACE {
 
+using namespace std::string_literals;
+
+// ---------------------------------------------------------------------------------------------------------------------
+/// \def format
+/// \brief A printf like string formatting function.
+#if __clang__
+__attribute__((format(printf, 1, 2)))
+#endif
+inline std::string
+format(const char * format, ...) {
+    va_list args;
+    va_start(args, format);
+
+    // Get the size of the buffer needed to store the formatted string.
+    int size = vsnprintf(NULL, 0, format, args);
+    if (size == -1) {
+        // Error getting the size of the buffer.
+        va_end(args);
+        return {};
+    }
+
+    // Allocate the buffer.
+    std::string buffer(size + 1, '\0');
+
+    // Format the string.
+    vsnprintf(&buffer[0], size + 1, format, args);
+
+    // Free the argument list.
+    va_end(args);
+
+    // Return the formatted string.
+    return buffer;
+}
+
+/// Overload of format() method for empty parameter list.
+inline std::string format() { return ""s; }
+
+// ---------------------------------------------------------------------------------------------------------------------
 /// @brief Pixel format structure
 union PixelFormat {
     struct {
@@ -722,6 +763,7 @@ constexpr auto getBitsCount(T data, size_t startBit = 0) -> typename std::enable
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wbitfield-constant-conversion"
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
 #pragma clang diagnostic ignored "-Wmissing-braces"
 #endif
 #ifdef __GNUC__
@@ -961,7 +1003,10 @@ struct ImagePlaneDesc {
     void saveToRAW(std::ostream & stream, const void * pixels) const;
 
     /// Save the image plane as .RAW file.
-    void saveToRAW(std::string & filename, const void * pixels) const { return saveToRAW(openFileStream(filename), pixels); }
+    void saveToRAW(std::string & filename, const void * pixels) const {
+        auto s = openFileStream(filename);
+        return saveToRAW(s, pixels);
+    }
 
     /// A general save function. Use extension to determine file format.
     void save(const std::string & filename, const void * pixels) const;
@@ -1235,7 +1280,6 @@ public:
     Image() = default;
     Image(ImageDesc && desc, const void * initialContent = nullptr, size_t initialContentSizeInbytes = 0);
     Image(const ImageDesc & desc, const void * initialContent = nullptr, size_t initialContentSizeInbytes = 0);
-    Image(const ImageDesc & desc, const ConstRange<uint8_t> & initialContent);
     Image(Image && rhs) {
         _proxy.desc = std::move(rhs._proxy.desc);
         RII_ASSERT(rhs._proxy.desc.empty());
@@ -1308,7 +1352,7 @@ public:
     static Image load(std::istream &);
 
     /// Helper method to load from a binary byte arry in memory.
-    static Image load(const ConstRange<uint8_t> &);
+    static Image load(const void * data, size_t size);
 
     /// Helper method to load from a file.
     static Image load(const std::string &);
@@ -1326,8 +1370,8 @@ namespace std {
 
 /// A functor that allows for hashing image image plane desc.
 template<>
-struct hash<ImagePlaneDesc> {
-    size_t operator()(const ImagePlaneDesc & key) const {
+struct hash<RAPID_IMAGE_NAMESPACE::ImagePlaneDesc> {
+    size_t operator()(const RAPID_IMAGE_NAMESPACE::ImagePlaneDesc & key) const {
         // Records the calculated hash of the texture handle.
         size_t hash = 7;
 
@@ -1348,8 +1392,8 @@ struct hash<ImagePlaneDesc> {
 
 /// A functor that allows for hashing image descriptions.
 template<>
-struct hash<ImageDesc> {
-    size_t operator()(const ImageDesc & key) const {
+struct hash<RAPID_IMAGE_NAMESPACE::ImageDesc> {
+    size_t operator()(const RAPID_IMAGE_NAMESPACE::ImageDesc & key) const {
         // Records the calculated hash of the texture handle.
         size_t hash = 7;
 
@@ -1359,10 +1403,10 @@ struct hash<ImageDesc> {
         hash = 79 * hash + (size_t) key.size;
 
         /// Allows us to hash the planes.
-        std::hash<ImagePlaneDesc> planeHasher;
+        std::hash<RAPID_IMAGE_NAMESPACE::ImagePlaneDesc> planeHasher;
 
         // Calculate the hash of the planes.
-        for (const ImagePlaneDesc & plane : key.planes) { hash = 79 * hash + planeHasher(plane); }
+        for (const RAPID_IMAGE_NAMESPACE::ImagePlaneDesc & plane : key.planes) { hash = 79 * hash + planeHasher(plane); }
 
         return hash;
     }
