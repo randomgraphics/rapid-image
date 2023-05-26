@@ -57,7 +57,7 @@ TEST_CASE("face-major", "[image]") {
 TEST_CASE("load", "[image]") {
     auto path = std::filesystem::path(TEST_FOLDER) / "alien-planet.jpg";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    auto ri = RawImage::load(path.string());
+    auto ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     REQUIRE(ri.width() == 600);
     REQUIRE(ri.height() == 486);
@@ -66,7 +66,7 @@ TEST_CASE("load", "[image]") {
 TEST_CASE("rgba32f", "[image]") {
     auto path = std::filesystem::path(TEST_FOLDER) / "rgba32f-64x64.dds";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    auto image = RawImage::load(path.string());
+    auto image = Image::load(path.string());
     REQUIRE(image.width() == 64);
     REQUIRE(image.height() == 64);
     auto pixels = image.desc().plane().toRGBA8(image.data());
@@ -80,13 +80,13 @@ TEST_CASE("rgba32f", "[image]") {
 TEST_CASE("save-to-png", "[image]") {
     auto path1 = (std::filesystem::path(TEST_FOLDER) / "alien-planet.jpg").string();
     PH_LOGI("load image from file: %s", path1.c_str());
-    auto r1 = RawImage::load(path1);
+    auto r1 = Image::load(path1);
     REQUIRE(r1.format() == ColorFormat::RGBA8());
 
     auto path2 = (std::filesystem::path(TEST_FOLDER) / "alien-planet-2.png").string();
     PH_LOGI("save image to file: %s", path2.c_str());
     r1.desc().plane(0).saveToPNG(path2, r1.data());
-    auto r2 = RawImage::load(path2);
+    auto r2 = Image::load(path2);
     REQUIRE(r2.format() == ColorFormat::RGBA8());
 
     // Delete the 2nd image.
@@ -100,7 +100,7 @@ TEST_CASE("save-to-png", "[image]") {
 TEST_CASE("astc-texture-handling", "[image]") {
     auto path = std::filesystem::path(TEST_FOLDER) / "alien-planet-4x4.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    auto ri = RawImage::load(path.string());
+    auto ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_4x4_UNORM());
     CHECK(ri.width() == 600);
@@ -108,7 +108,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-2-4x4.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_4x4_UNORM());
     CHECK(ri.width() == 537);
@@ -118,7 +118,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-5x4.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_5x4_UNORM());
     CHECK(ri.width() == 600);
@@ -126,7 +126,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-5x5.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_5x5_UNORM());
     CHECK(ri.width() == 600);
@@ -134,7 +134,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-6x5.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_6x5_UNORM());
     CHECK(ri.width() == 600);
@@ -144,7 +144,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-6x6.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_6x6_UNORM());
     CHECK(ri.width() == 600);
@@ -152,7 +152,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-8x5.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_8x5_UNORM());
     CHECK(ri.width() == 600);
@@ -160,7 +160,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-8x6.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_8x6_UNORM());
     CHECK(ri.width() == 600);
@@ -168,7 +168,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-8x8.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_8x8_UNORM());
     CHECK(ri.width() == 600);
@@ -176,7 +176,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-10x5.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_10x5_UNORM());
     CHECK(ri.width() == 600);
@@ -184,7 +184,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-10x6.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_10x6_UNORM());
     CHECK(ri.width() == 600);
@@ -192,7 +192,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-10x8.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_10x8_UNORM());
     CHECK(ri.width() == 600);
@@ -200,7 +200,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-10x10.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_10x10_UNORM());
     CHECK(ri.width() == 600);
@@ -208,7 +208,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-12x10.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_12x10_UNORM());
     CHECK(ri.width() == 600);
@@ -216,7 +216,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
     path = std::filesystem::path(TEST_FOLDER) / "alien-planet-12x12.astc";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    ri = RawImage::load(path.string());
+    ri = Image::load(path.string());
     REQUIRE(!ri.empty());
     CHECK(ri.format() == ColorFormat::ASTC_12x12_UNORM());
     CHECK(ri.width() == 600);
@@ -225,7 +225,7 @@ TEST_CASE("astc-texture-handling", "[image]") {
 
 TEST_CASE("plane-data-reconversion-from-float-functions", "[image]") {
     auto path = std::filesystem::path(TEST_FOLDER) / "alien-planet.jpg";
-    auto ri   = RawImage::load(path.string());
+    auto ri   = Image::load(path.string());
 
     auto      plane = ri.desc().planes.front();
     uint8_t * dst   = new uint8_t[plane.size];
@@ -237,7 +237,7 @@ TEST_CASE("plane-data-reconversion-from-float-functions", "[image]") {
 }
 
 TEST_CASE("step-and-pitch-checks-on-mipmap-generation-routines", "[image]") {
-    auto ri = RawImage(ImageDesc(ImagePlaneDesc::make(ColorFormat::RG_8_8_UNORM(), 2, 2, 1, 4, 16)));
+    auto ri = Image(ImageDesc(ImagePlaneDesc::make(ColorFormat::RG_8_8_UNORM(), 2, 2, 1, 4, 16)));
     REQUIRE(ri.desc().levels == 1);
 
     ri.data()[0] = 1; // R00
@@ -307,7 +307,7 @@ TEST_CASE("step-and-pitch-checks-on-mipmap-generation-routines", "[image]") {
 TEST_CASE("ktx2", "[image]") {
     auto path = std::filesystem::path(TEST_FOLDER) / "bumper-panorama.ktx2";
     PH_LOGI("load image from file: %s", path.string().c_str());
-    auto ri = RawImage::load(path.string());
+    auto ri = Image::load(path.string());
 
     REQUIRE(!ri.empty());
     REQUIRE(ri.data());

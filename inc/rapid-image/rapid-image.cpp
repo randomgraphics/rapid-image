@@ -5,8 +5,8 @@
 #pragma GCC diagnostic ignored "-Wconversion"
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #endif
-#include <algorithm>
 #include <numeric>
+#include <cstring>
 
 namespace RAPID_IMAGE_NAMESPACE {
 
@@ -16,10 +16,10 @@ constexpr PixelFormat::LayoutDesc PixelFormat::LAYOUTS[];
 #endif
 
 // *********************************************************************************************************************
-// ImagePlaneDesc
+// PlaneDesc
 // *********************************************************************************************************************
 
-bool ImagePlaneDesc::valid() const {
+bool PlaneDesc::valid() const {
     // check format
     if (!format.valid()) {
         RAPID_IMAGE_LOGE("invalid format");
@@ -70,7 +70,7 @@ bool ImagePlaneDesc::valid() const {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-ImagePlaneDesc ImagePlaneDesc::make(PixelFormat format, size_t width, size_t height, size_t depth, size_t step, size_t pitch, size_t slice) {
+PlaneDesc PlaneDesc::make(PixelFormat format, size_t width, size_t height, size_t depth, size_t step, size_t pitch, size_t slice) {
     if (!format.valid()) {
         RAPID_IMAGE_LOGE("invalid color format: 0x%X", format.u32);
         return {};
@@ -85,7 +85,7 @@ ImagePlaneDesc ImagePlaneDesc::make(PixelFormat format, size_t width, size_t hei
     // }
     // alignment = ceilPowerOf2(std::max((uint32_t)alignment, (uint32_t)fd.blockBytes));
 
-    ImagePlaneDesc p;
+    PlaneDesc p;
     p.format = format;
     p.width  = (uint32_t) (width ? width : 1);
     p.height = (uint32_t) (height ? height : 1);
@@ -446,7 +446,7 @@ struct StbiStream {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-void ImagePlaneDesc::saveToRAW(std::ostream & stream, const void * pixels) const {
+void PlaneDesc::saveToRAW(std::ostream & stream, const void * pixels) const {
     constexpr size_t PLANE_SIZE = sizeof(*this);
     static_assert(PLANE_SIZE <= 256, "we currently only reserved 256 bytes for plane descriptor.");
     stream.write((const char *) this, PLANE_SIZE);
@@ -456,7 +456,7 @@ void ImagePlaneDesc::saveToRAW(std::ostream & stream, const void * pixels) const
 
 // // ---------------------------------------------------------------------------------------------------------------------
 // //
-// void ImagePlaneDesc::save(const std::string & filename, const void * pixels) const {
+// void PlaneDesc::save(const std::string & filename, const void * pixels) const {
 //     std::ofstream file(filename, std::ios::binary);
 //     if (!file) {
 //         RAPID_IMAGE_LOGE("failed to open file %s for writing.", filename.c_str());
@@ -479,7 +479,7 @@ void ImagePlaneDesc::saveToRAW(std::ostream & stream, const void * pixels) const
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-std::vector<float4> ImagePlaneDesc::toFloat4(const void * pixels) const {
+std::vector<float4> PlaneDesc::toFloat4(const void * pixels) const {
     if (empty()) {
         RAPID_IMAGE_LOGE("Can't save empty image plane.");
         return {};
@@ -502,7 +502,7 @@ std::vector<float4> ImagePlaneDesc::toFloat4(const void * pixels) const {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-std::vector<RGBA8> ImagePlaneDesc::toRGBA8(const void * pixels) const {
+std::vector<RGBA8> PlaneDesc::toRGBA8(const void * pixels) const {
     if (empty()) {
         RAPID_IMAGE_LOGE("Can't save empty image plane.");
         return {};
@@ -533,7 +533,7 @@ std::vector<RGBA8> ImagePlaneDesc::toRGBA8(const void * pixels) const {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-void ImagePlaneDesc::fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void * src) const {
+void PlaneDesc::fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void * src) const {
     if (empty()) {
         RAPID_IMAGE_LOGE("Can't load data to empty image plane.");
         return;
@@ -558,28 +558,28 @@ void ImagePlaneDesc::fromFloat4(void * dst, size_t dstSize, size_t dstZ, const v
     }
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-//
-RawImage ImagePlaneDesc::generateMipmaps(const void * pixels) const {
-    RII_REQUIRE(depth == 1);
+// // ---------------------------------------------------------------------------------------------------------------------
+// //
+// Image PlaneDesc::generateMipmaps(const void * pixels) const {
+//     RII_REQUIRE(depth == 1);
 
-    RawImage  ri           = RawImage(ImageDesc(ImagePlaneDesc::make(PixelFormat::FLOAT4(), width, height), 1, 0));
-    auto      baseMap      = toFloat4(pixels);
-    uint8_t * baseMapAlloc = ri.data();
-    memcpy(baseMapAlloc, baseMap.data(), baseMap.size() * sizeof(float4));
-    RawImage result = RawImage(ImageDesc(ImagePlaneDesc::make(format, width, height), 1, 0));
+//     Image  ri           = Image(ImageDesc(PlaneDesc::make(PixelFormat::FLOAT4(), width, height), 1, 0));
+//     auto      baseMap      = toFloat4(pixels);
+//     uint8_t * baseMapAlloc = ri.data();
+//     memcpy(baseMapAlloc, baseMap.data(), baseMap.size() * sizeof(float4));
+//     Image result = Image(ImageDesc(PlaneDesc::make(format, width, height), 1, 0));
 
-    result.desc().plane().fromFloat4(result.data(), result.size(), 0, baseMapAlloc);
+//     result.desc().plane().fromFloat4(result.data(), result.size(), 0, baseMapAlloc);
 
-    for (size_t i = 1; i < ri.desc().levels; ++i) {
-        uint8_t * mipAlloc = ri.data() + ri.desc().pixel(0, i);
-        MipmapGenerator::generateMipmap((float4 *) mipAlloc, (const float4 *) (ri.data() + ri.desc().pixel(0, i - 1)), ri.desc(0, i - 1).width,
-                                        ri.desc(0, i - 1).height, ri.desc(0, i).width, ri.desc(0, i).height);
-        result.desc().plane(0, i).fromFloat4(result.data(), result.size(), 0, mipAlloc);
-    }
+//     for (size_t i = 1; i < ri.desc().levels; ++i) {
+//         uint8_t * mipAlloc = ri.data() + ri.desc().pixel(0, i);
+//         MipmapGenerator::generateMipmap((float4 *) mipAlloc, (const float4 *) (ri.data() + ri.desc().pixel(0, i - 1)), ri.desc(0, i - 1).width,
+//                                         ri.desc(0, i - 1).height, ri.desc(0, i).width, ri.desc(0, i).height);
+//         result.desc().plane(0, i).fromFloat4(result.data(), result.size(), 0, mipAlloc);
+//     }
 
-    return result;
-}
+//     return result;
+// }
 
 // *********************************************************************************************************************
 // ImageDesc
@@ -608,11 +608,11 @@ bool ImageDesc::valid() const {
         for (uint32_t l = 0; l < levels; ++l) {
             auto & m = plane(f, l);
             if (!m.valid()) {
-                RAPID_IMAGE_LOGE("image plane [%d] is invalid", index(f, l));
+                RAPID_IMAGE_LOGE("image plane [%zu] is invalid", index(f, l));
                 return false;
             }
             if ((m.offset + m.size) > size) {
-                RAPID_IMAGE_LOGE("image plane [%d]'s (offset + size) is out of range.", index(f, l));
+                RAPID_IMAGE_LOGE("image plane [%zu]'s (offset + size) is out of range.", index(f, l));
                 return false;
             }
         }
@@ -623,7 +623,7 @@ bool ImageDesc::valid() const {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-ImageDesc & ImageDesc::reset(const ImagePlaneDesc & baseMap, size_t layers_, size_t levels_, ConstructionOrder order) {
+ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t levels_, ConstructionOrder order) {
     // clear old data
     clear();
     RII_ASSERT(valid());
@@ -657,7 +657,7 @@ ImageDesc & ImageDesc::reset(const ImagePlaneDesc & baseMap, size_t layers_, siz
     uint32_t offset = 0;
     if (MIP_MAJOR == order) {
         // In this mode, the outer loop is mipmap level, the inner loop is layers/faces
-        ImagePlaneDesc mip = baseMap;
+        PlaneDesc mip = baseMap;
         for (uint32_t m = 0; m < levels_; ++m) {
             for (size_t i = 0; i < layers_; ++i) {
                 mip.offset          = offset;
@@ -668,12 +668,12 @@ ImageDesc & ImageDesc::reset(const ImagePlaneDesc & baseMap, size_t layers_, siz
             if (mip.width > 1) mip.width >>= 1;
             if (mip.height > 1) mip.height >>= 1;
             if (mip.depth > 1) mip.depth >>= 1;
-            mip = ImagePlaneDesc::make(mip.format, mip.width, mip.height, mip.depth, mip.step, 0, 0);
+            mip = PlaneDesc::make(mip.format, mip.width, mip.height, mip.depth, mip.step, 0, 0);
         }
     } else {
         // In this mode, the outer loop is faces/layers, the inner loop is mipmap levels
         for (size_t f = 0; f < layers_; ++f) {
-            ImagePlaneDesc mip = baseMap;
+            PlaneDesc mip = baseMap;
             for (size_t m = 0; m < levels_; ++m) {
                 mip.offset          = offset;
                 planes[index(f, m)] = mip;
@@ -682,7 +682,7 @@ ImageDesc & ImageDesc::reset(const ImagePlaneDesc & baseMap, size_t layers_, siz
                 if (mip.width > 1) mip.width >>= 1;
                 if (mip.height > 1) mip.height >>= 1;
                 if (mip.depth > 1) mip.depth >>= 1;
-                mip = ImagePlaneDesc::make(mip.format, mip.width, mip.height, mip.depth, mip.step, 0, 0);
+                mip = PlaneDesc::make(mip.format, mip.width, mip.height, mip.depth, mip.step, 0, 0);
             }
         }
     }
@@ -697,45 +697,39 @@ ImageDesc & ImageDesc::reset(const ImagePlaneDesc & baseMap, size_t layers_, siz
 // ---------------------------------------------------------------------------------------------------------------------
 //
 ImageDesc & ImageDesc::set2D(PixelFormat format, size_t width, size_t height, size_t levels_, ConstructionOrder order) {
-    auto baseMap = ImagePlaneDesc::make(format, width, height);
+    auto baseMap = PlaneDesc::make(format, width, height);
     return reset(baseMap, 1, levels_, order);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
 ImageDesc & ImageDesc::setCube(PixelFormat format, size_t width, size_t levels_, ConstructionOrder order) {
-    auto baseMap = ImagePlaneDesc::make(format, width, width);
+    auto baseMap = PlaneDesc::make(format, width, width);
     return reset(baseMap, 6, levels_, order);
 }
 
 // *********************************************************************************************************************
-// RawImage
+// Image
 // *********************************************************************************************************************
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-RawImage::RawImage(ImageDesc && desc, const void * initialContent, size_t initialContentSizeInbytes) {
+Image::Image(ImageDesc && desc, const void * initialContent, size_t initialContentSizeInbytes) {
     _proxy.desc = std::move(desc);
     construct(initialContent, initialContentSizeInbytes);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-RawImage::RawImage(const ImageDesc & desc, const void * initialContent, size_t initialContentSizeInbytes) {
+Image::Image(const ImageDesc & desc, const void * initialContent, size_t initialContentSizeInbytes) {
     _proxy.desc = std::move(desc);
     construct(initialContent, initialContentSizeInbytes);
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-//
-RawImage::RawImage(const ImageDesc & desc, const ConstRange<uint8_t> & initialContent) {
-    _proxy.desc = std::move(desc);
-    construct(initialContent.data(), initialContent.size());
-}
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-void RawImage::clear() {
+void Image::clear() {
     afree(_proxy.data);
     _proxy.data = nullptr;
     _proxy.desc = {};
@@ -744,7 +738,7 @@ void RawImage::clear() {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-void RawImage::construct(const void * initialContent, size_t initialContentSizeInbytes) {
+void Image::construct(const void * initialContent, size_t initialContentSizeInbytes) {
     // clear old image data.
     afree(_proxy.data);
     _proxy.data = nullptr;
@@ -779,7 +773,7 @@ void RawImage::construct(const void * initialContent, size_t initialContentSizeI
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-RawImage RawImage::load(std::istream & fp) {
+Image Image::load(std::istream & fp) {
     // store current stream position
     auto begin = fp.tellg();
 
@@ -808,7 +802,7 @@ RawImage RawImage::load(std::istream & fp) {
     // try read as DDS
     DDSReader dds(fp);
     if (dds.checkFormat()) {
-        auto image = RawImage(dds.readHeader());
+        auto image = Image(dds.readHeader());
         if (!image.empty() && dds.readPixels(image.data(), image.size())) { return image; }
     }
 
@@ -823,7 +817,7 @@ RawImage RawImage::load(std::istream & fp) {
     fp.seekg(begin, std::ios::beg);
     auto data = stbi_load_from_callbacks(&io, &fp, &x, &y, &n, 4);
     if (data) {
-        auto image = RawImage(ImageDesc(ImagePlaneDesc::make(PixelFormat::RGBA_8_8_8_8_UNORM(), (uint32_t) x, (uint32_t) y)), data);
+        auto image = Image(ImageDesc(PlaneDesc::make(PixelFormat::RGBA_8_8_8_8_UNORM(), (uint32_t) x, (uint32_t) y)), data);
         RII_ASSERT(image.desc().valid());
         stbi_image_free(data);
         return image;
@@ -835,7 +829,7 @@ RawImage RawImage::load(std::istream & fp) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-RawImage RawImage::load(const ConstRange<uint8_t> & data) {
+Image Image::load(const ConstRange<uint8_t> & data) {
     auto str = std::string((const char *) data.data(), data.size());
     auto iss = std::istringstream(str);
     return load(iss);
@@ -843,7 +837,7 @@ RawImage RawImage::load(const ConstRange<uint8_t> & data) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-RawImage RawImage::load(const std::string & filename) {
+Image Image::load(const std::string & filename) {
     std::ifstream f(filename, std::ios::binary);
     if (!f.good()) {
         RAPID_IMAGE_LOGE("Failed to open image file %s : %s", filename.c_str(), errno2str(errno));
