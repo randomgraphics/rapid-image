@@ -511,7 +511,7 @@ std::vector<float4> PlaneDesc::toFloat4(const void * pixels) const {
     }
     const uint8_t *     p = (const uint8_t *) pixels;
     std::vector<float4> colors;
-    colors.reserve(width * height);
+    colors.reserve(width * height * depth);
     for (uint32_t z = 0; z < depth; ++z) {
         for (uint32_t y = 0; y < height; ++y) {
             for (uint32_t x = 0; x < width; ++x) { colors.push_back(convertNonCompressedPixelToFloat4(ld, format, p + pixel(x, y, z))); }
