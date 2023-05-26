@@ -950,6 +950,33 @@ struct PlaneDesc {
     // /// Memory alignment requirement of the plane. The value must be power of 2.
     // uint32_t alignment = 0;
 
+    /// Create a new image plane descriptor
+    static PlaneDesc make(PixelFormat format, size_t width, size_t height = 1, size_t depth = 1, size_t step = 0, size_t pitch = 0, size_t slice = 0);
+
+    PlaneDesc & setFormat(PixelFormat format_) {
+        format = format_;
+        return *this;
+    }
+
+    PlaneDesc & setExtent(size_t width_, size_t height_ = 1, size_t depth_ = 1) {
+        width  = width_;
+        height = height_;
+        depth  = depth_;
+        return *this;
+    }
+
+    PlaneDesc & setSpacing(size_t step_, size_t pitch_ = 0, size_t slice_ = 0) {
+        RII_REQUIRE(format.valid(), "must call this after setting the pixel format.");
+        const auto & fd = format.layoutDesc();
+        RII_REQUIRE(width > 0 && height > 0 && depth > 0, "must call this after setting the plane extent.");
+        auto numBlocksPerRow = (uint32_t) ((width + fd.blockWidth - 1) / fd.blockWidth);
+        auto numBlocksPerCol = (uint32_t) ((height + fd.blockHeight - 1) / fd.blockHeight);
+        step                 = std::max((uint32_t) step_, (uint32_t) (fd.blockBytes));
+        pitch                = std::max(step * numBlocksPerRow, (uint32_t) pitch_);
+        slice                = std::max(pitch * numBlocksPerCol, (uint32_t) slice_);
+        return *this;
+    }
+
     /// returns offset from start of data buffer for a particular pixel within the plane
     size_t pixel(size_t x, size_t y, size_t z = 0) const {
         RII_ASSERT(x < width && y < height && z < depth);
@@ -996,9 +1023,6 @@ struct PlaneDesc {
         // clang-format on
     }
 
-    /// Create a new image plane descriptor
-    static PlaneDesc make(PixelFormat format, size_t width, size_t height = 1, size_t depth = 1, size_t step = 0, size_t pitch = 0, size_t slice = 0);
-
     /// Save the image plane to .RAW stream.
     void saveToRAW(std::ostream & stream, const void * pixels) const;
 
@@ -1011,12 +1035,12 @@ struct PlaneDesc {
     /// A general save function. Use extension to determine file format.
     void save(const std::string & filename, const void * pixels) const;
 
-    /// Convert the specified slice of the image plane to float4 format.
+    /// Convert the image plane to float4 format.
     /// \return Pixel data in float4 format.
     std::vector<float4> toFloat4(const void * src) const;
 
-    /// Convert the specified slice of the image plane to R8G8B8A8_UNORM format.
-    /// \return Pixel data in R8G8B8A8_UNORM format.
+    /// Convert image plane to rgba8 format.
+    /// \return Pixel data in rgba8 format.
     std::vector<RGBA8> toRGBA8(const void * src) const;
 
     /// Load data to specific slice of image plane from float4 data.
