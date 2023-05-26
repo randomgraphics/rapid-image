@@ -16,3 +16,6 @@ add_library(rapid-image-static STATIC ri.cpp)
 target_compile_features(rapid-image-static PUBLIC cxx_std_17)
 target_compile_definitions(rapid-image-static PUBLIC  $<$<CONFIG:Debug>:RAPID_IMAGE_ENABLE_DEBUG_BUILD=1>)
 target_include_directories(rapid-image-static PUBLIC ../inc)
+
+# Build tests
+add_subdirectory(test)
