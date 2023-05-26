@@ -15,6 +15,26 @@ namespace RAPID_IMAGE_NAMESPACE {
 constexpr PixelFormat::LayoutDesc PixelFormat::LAYOUTS[];
 #endif
 
+// ---------------------------------------------------------------------------------------------------------------------
+//
+static void * aalloc(size_t a, size_t s) {
+#if _WIN32
+    return _aligned_malloc(s, a);
+#else
+    return aligned_alloc(a, s);
+#endif
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
+static void afree(void * p) {
+#if _WIN32
+    _aligned_free(p);
+#else
+    ::free(p);
+#endif
+}
+
 // *********************************************************************************************************************
 // PlaneDesc
 // *********************************************************************************************************************
@@ -726,7 +746,6 @@ Image::Image(const ImageDesc & desc, const void * initialContent, size_t initial
     construct(initialContent, initialContentSizeInbytes);
 }
 
-
 // ---------------------------------------------------------------------------------------------------------------------
 //
 void Image::clear() {
@@ -748,7 +767,7 @@ void Image::construct(const void * initialContent, size_t initialContentSizeInby
         // Usually constructing an empty image is a valid behavior. So we don't print any error/warning messages.
         // But if we given an empty descriptor but non empty initial content, then it might imply that something
         // went wrong.
-        if (initialContent && initialContentSizeInbytes) { RII_LOGW("constructing an empty image with non-empty content array"); }
+        if (initialContent && initialContentSizeInbytes) { RAPID_IMAGE_LOGW("constructing an empty image with non-empty content array"); }
         return;
     }
 
@@ -765,72 +784,72 @@ void Image::construct(const void * initialContent, size_t initialContentSizeInby
         if (0 == initialContentSizeInbytes) {
             initialContentSizeInbytes = imageSize;
         } else if (initialContentSizeInbytes != imageSize) {
-            RII_LOGW("incoming pixel buffer size does not equal to calculated image size.");
+            RAPID_IMAGE_LOGW("incoming pixel buffer size does not equal to calculated image size.");
         }
         memcpy(_proxy.data, initialContent, std::min(imageSize, initialContentSizeInbytes));
     }
 }
 
+// // ---------------------------------------------------------------------------------------------------------------------
+// //
+// Image Image::load(std::istream & fp) {
+//     // store current stream position
+//     auto begin = fp.tellg();
+
+//     // try read as ASTC
+//     ASTCReader astc(fp);
+//     if (!astc.empty()) { return astc.getRawImage(); }
+
+//     fp.seekg(begin, std::ios::beg);
+
+//     // setup stbi io callback
+//     stbi_io_callbacks io = {};
+//     io.read              = [](void * user, char * data, int size) -> int {
+//         auto fp = (std::istream *) user;
+//         fp->read(data, size);
+//         return (int) fp->gcount();
+//     };
+//     io.skip = [](void * user, int n) {
+//         auto fp = (std::istream *) user;
+//         fp->seekg(n, std::ios::cur);
+//     };
+//     io.eof = [](void * user) -> int {
+//         auto fp = (std::istream *) user;
+//         return fp->eof();
+//     };
+
+//     // try read as DDS
+//     DDSReader dds(fp);
+//     if (dds.checkFormat()) {
+//         auto image = Image(dds.readHeader());
+//         if (!image.empty() && dds.readPixels(image.data(), image.size())) { return image; }
+//     }
+
+//     // try read as KTX2
+//     KTX2Reader ktx2(fp);
+//     auto       image = ktx2.readFile();
+//     if (!image.empty() && image.data()) { return image; }
+
+//     // Load from common image file via stb_image library
+//     // TODO: hdr/grayscale support
+//     int x, y, n;
+//     fp.seekg(begin, std::ios::beg);
+//     auto data = stbi_load_from_callbacks(&io, &fp, &x, &y, &n, 4);
+//     if (data) {
+//         auto image = Image(ImageDesc(PlaneDesc::make(PixelFormat::RGBA_8_8_8_8_UNORM(), (uint32_t) x, (uint32_t) y)), data);
+//         RII_ASSERT(image.desc().valid());
+//         stbi_image_free(data);
+//         return image;
+//     }
+
+//     // RAPID_IMAGE_LOGE("Failed to load image from stream: unrecognized file format.");
+//     return {};
+// }
+
 // ---------------------------------------------------------------------------------------------------------------------
 //
-Image Image::load(std::istream & fp) {
-    // store current stream position
-    auto begin = fp.tellg();
-
-    // try read as ASTC
-    ASTCReader astc(fp);
-    if (!astc.empty()) { return astc.getRawImage(); }
-
-    fp.seekg(begin, std::ios::beg);
-
-    // setup stbi io callback
-    stbi_io_callbacks io = {};
-    io.read              = [](void * user, char * data, int size) -> int {
-        auto fp = (std::istream *) user;
-        fp->read(data, size);
-        return (int) fp->gcount();
-    };
-    io.skip = [](void * user, int n) {
-        auto fp = (std::istream *) user;
-        fp->seekg(n, std::ios::cur);
-    };
-    io.eof = [](void * user) -> int {
-        auto fp = (std::istream *) user;
-        return fp->eof();
-    };
-
-    // try read as DDS
-    DDSReader dds(fp);
-    if (dds.checkFormat()) {
-        auto image = Image(dds.readHeader());
-        if (!image.empty() && dds.readPixels(image.data(), image.size())) { return image; }
-    }
-
-    // try read as KTX2
-    KTX2Reader ktx2(fp);
-    auto       image = ktx2.readFile();
-    if (!image.empty() && image.data()) { return image; }
-
-    // Load from common image file via stb_image library
-    // TODO: hdr/grayscale support
-    int x, y, n;
-    fp.seekg(begin, std::ios::beg);
-    auto data = stbi_load_from_callbacks(&io, &fp, &x, &y, &n, 4);
-    if (data) {
-        auto image = Image(ImageDesc(PlaneDesc::make(PixelFormat::RGBA_8_8_8_8_UNORM(), (uint32_t) x, (uint32_t) y)), data);
-        RII_ASSERT(image.desc().valid());
-        stbi_image_free(data);
-        return image;
-    }
-
-    // RAPID_IMAGE_LOGE("Failed to load image from stream: unrecognized file format.");
-    return {};
-}
-
-// ---------------------------------------------------------------------------------------------------------------------
-//
-Image Image::load(const ConstRange<uint8_t> & data) {
-    auto str = std::string((const char *) data.data(), data.size());
+Image Image::load(const void * data, size_t size) {
+    auto str = std::string((const char *) data, size);
     auto iss = std::istringstream(str);
     return load(iss);
 }
@@ -840,7 +859,7 @@ Image Image::load(const ConstRange<uint8_t> & data) {
 Image Image::load(const std::string & filename) {
     std::ifstream f(filename, std::ios::binary);
     if (!f.good()) {
-        RAPID_IMAGE_LOGE("Failed to open image file %s : %s", filename.c_str(), errno2str(errno));
+        RAPID_IMAGE_LOGE("Failed to open image file %s : errno=%d", filename.c_str(), errno);
         return {};
     }
     return load(f);
