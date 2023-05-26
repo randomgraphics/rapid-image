@@ -159,7 +159,7 @@ SOFTWARE.
 #define RII_REQUIRE(condition, ...)                                                    \
     do {                                                                               \
         if (!(condition)) {                                                            \
-            auto errorMessage__ = RAPID_VULKAN_NAMESPACE::format(__VA_ARGS__);         \
+            auto errorMessage__ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);          \
             RII_THROW("Condition " #condition " not met: %s", errorMessage__.c_str()); \
         }                                                                              \
     } while (false)
@@ -918,7 +918,7 @@ class Image;
 
 /// This represents a single 1D/2D/3D image plan. This is the building block of more complex image structures like
 /// cube/array images, mipmap chains and etc.
-struct ImagePlaneDesc {
+struct PlaneDesc {
     /// pixel format
     PixelFormat format = PixelFormat::UNKNOWN();
 
@@ -966,7 +966,7 @@ struct ImagePlaneDesc {
     /// check if this is an empty descriptor. Note that empty descriptor is never valid.
     bool empty() const { return PixelFormat::UNKNOWN() == format; }
 
-    bool operator==(const ImagePlaneDesc & rhs) const {
+    bool operator==(const PlaneDesc & rhs) const {
         // clang-format off
         return format == rhs.format
             && width  == rhs.width
@@ -980,9 +980,9 @@ struct ImagePlaneDesc {
         // clang-format on
     }
 
-    bool operator!=(const ImagePlaneDesc & rhs) const { return !operator==(rhs); }
+    bool operator!=(const PlaneDesc & rhs) const { return !operator==(rhs); }
 
-    bool operator<(const ImagePlaneDesc & rhs) const {
+    bool operator<(const PlaneDesc & rhs) const {
         // clang-format off
         if (format != rhs.format) return format < rhs.format;
         if (width  != rhs.width)  return width  < rhs.width;
@@ -997,7 +997,7 @@ struct ImagePlaneDesc {
     }
 
     /// Create a new image plane descriptor
-    static ImagePlaneDesc make(PixelFormat format, size_t width, size_t height = 1, size_t depth = 1, size_t step = 0, size_t pitch = 0, size_t slice = 0);
+    static PlaneDesc make(PixelFormat format, size_t width, size_t height = 1, size_t depth = 1, size_t step = 0, size_t pitch = 0, size_t slice = 0);
 
     /// Save the image plane to .RAW stream.
     void saveToRAW(std::ostream & stream, const void * pixels) const;
@@ -1022,7 +1022,7 @@ struct ImagePlaneDesc {
     /// Load data to specific slice of image plane from float4 data.
     void fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void * src) const;
 
-    Image generateMipmaps(const void * pixels) const;
+    // Image generateMipmaps(const void * pixels) const;
 
 private:
     static std::ofstream openFileStream(const std::string & filename) {
@@ -1046,10 +1046,10 @@ struct ImageDesc {
 
     //@{
 
-    std::vector<ImagePlaneDesc> planes;     ///< length of array = layers * mips;
-    uint32_t                    layers = 0; ///< number of layers
-    uint32_t                    levels = 0; ///< number of mipmap levels
-    uint32_t                    size   = 0; ///< total size in bytes;
+    std::vector<PlaneDesc> planes;     ///< length of array = layers * mips;
+    uint32_t               layers = 0; ///< number of layers
+    uint32_t               levels = 0; ///< number of mipmap levels
+    uint32_t               size   = 0; ///< total size in bytes;
 
     //@}
 
@@ -1110,9 +1110,13 @@ struct ImageDesc {
     /// \param baseMap the base image
     /// \param layers number of layers. must be positive integer
     /// \param levels number of mipmap levels. set to 0 to automatically build full mipmap chain.
-    ImageDesc(const ImagePlaneDesc & baseMap, size_t layers = 1, size_t levels = 1, ConstructionOrder order = MIP_MAJOR) {
-        reset(baseMap, layers, levels, order);
-    }
+    ImageDesc(const PlaneDesc & baseMap, size_t layers = 1, size_t levels = 1, ConstructionOrder order = MIP_MAJOR) { reset(baseMap, layers, levels, order); }
+
+    /// Copy constructor
+    ImageDesc(const ImageDesc &) = default;
+
+    /// Copy operator
+    ImageDesc & operator=(const ImageDesc &) = default;
 
     /// move constructor
     ImageDesc(ImageDesc && rhs) {
@@ -1153,7 +1157,7 @@ struct ImageDesc {
     }
 
     /// reset the descriptor
-    ImageDesc & reset(const ImagePlaneDesc & baseMap, size_t layers, size_t levels, ConstructionOrder order);
+    ImageDesc & reset(const PlaneDesc & baseMap, size_t layers, size_t levels, ConstructionOrder order);
 
     /// @brief Set to simple 2D Image
     /// @param format   Pixel format
@@ -1189,15 +1193,15 @@ struct ImageDesc {
     /// methods to return properties of the specific plane.
     //@{
     // clang-format off
-    const ImagePlaneDesc & plane (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)]; }
-    ImagePlaneDesc       & plane (size_t layer = 0, size_t level = 0)       { return planes[index(layer, level)]; }
-    PixelFormat            format(size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].format; }
-    uint32_t               width (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].width; }
-    uint32_t               height(size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].height; }
-    uint32_t               depth (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].depth; }
-    uint32_t               step  (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].step; }
-    uint32_t               pitch (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].pitch; }
-    uint32_t               slice (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].slice; }
+    const PlaneDesc & plane (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)]; }
+    PlaneDesc       & plane (size_t layer = 0, size_t level = 0)       { return planes[index(layer, level)]; }
+    PixelFormat       format(size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].format; }
+    uint32_t          width (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].width; }
+    uint32_t          height(size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].height; }
+    uint32_t          depth (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].depth; }
+    uint32_t          step  (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].step; }
+    uint32_t          pitch (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].pitch; }
+    uint32_t          slice (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].slice; }
     // clang-format on
     //@}
 
@@ -1308,7 +1312,7 @@ public:
     const ImageDesc & desc() const { return _proxy.desc; }
 
     /// return descriptor of a image plane
-    const ImagePlaneDesc & desc(size_t layer, size_t level) const { return _proxy.desc.plane(layer, level); }
+    const PlaneDesc & desc(size_t layer, size_t level) const { return _proxy.desc.plane(layer, level); }
 
     /// return pointer to pixel buffer.
     const uint8_t * data() const { return _proxy.data; }
@@ -1346,16 +1350,16 @@ public:
     /// Save certain plane to disk file.
     void save(const std::string & filename, size_t layer, size_t level) const { desc().plane(layer, level).save(filename, proxy().pixel(layer, level)); }
 
-    /// \name Image loading utilities
-    //@{
-    /// Helper method to load from a binary stream.
-    static Image load(std::istream &);
+    // /// \name Image loading utilities
+    // //@{
+    // /// Helper method to load from a binary stream.
+    // static Image load(std::istream &);
 
-    /// Helper method to load from a binary byte arry in memory.
-    static Image load(const void * data, size_t size);
+    // /// Helper method to load from a binary byte arry in memory.
+    // static Image load(const void * data, size_t size);
 
-    /// Helper method to load from a file.
-    static Image load(const std::string &);
+    // /// Helper method to load from a file.
+    // static Image load(const std::string &);
 
 private:
     ImageProxy _proxy;
@@ -1370,8 +1374,8 @@ namespace std {
 
 /// A functor that allows for hashing image image plane desc.
 template<>
-struct hash<RAPID_IMAGE_NAMESPACE::ImagePlaneDesc> {
-    size_t operator()(const RAPID_IMAGE_NAMESPACE::ImagePlaneDesc & key) const {
+struct hash<RAPID_IMAGE_NAMESPACE::PlaneDesc> {
+    size_t operator()(const RAPID_IMAGE_NAMESPACE::PlaneDesc & key) const {
         // Records the calculated hash of the texture handle.
         size_t hash = 7;
 
@@ -1403,10 +1407,10 @@ struct hash<RAPID_IMAGE_NAMESPACE::ImageDesc> {
         hash = 79 * hash + (size_t) key.size;
 
         /// Allows us to hash the planes.
-        std::hash<RAPID_IMAGE_NAMESPACE::ImagePlaneDesc> planeHasher;
+        std::hash<RAPID_IMAGE_NAMESPACE::PlaneDesc> planeHasher;
 
         // Calculate the hash of the planes.
-        for (const RAPID_IMAGE_NAMESPACE::ImagePlaneDesc & plane : key.planes) { hash = 79 * hash + planeHasher(plane); }
+        for (const RAPID_IMAGE_NAMESPACE::PlaneDesc & plane : key.planes) { hash = 79 * hash + planeHasher(plane); }
 
         return hash;
     }
