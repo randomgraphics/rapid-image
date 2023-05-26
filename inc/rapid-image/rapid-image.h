@@ -1350,16 +1350,16 @@ public:
     /// Save certain plane to disk file.
     void save(const std::string & filename, size_t layer, size_t level) const { desc().plane(layer, level).save(filename, proxy().pixel(layer, level)); }
 
-    /// \name Image loading utilities
-    //@{
-    /// Helper method to load from a binary stream.
-    static Image load(std::istream &);
+    // /// \name Image loading utilities
+    // //@{
+    // /// Helper method to load from a binary stream.
+    // static Image load(std::istream &);
 
-    /// Helper method to load from a binary byte arry in memory.
-    static Image load(const void * data, size_t size);
+    // /// Helper method to load from a binary byte arry in memory.
+    // static Image load(const void * data, size_t size);
 
-    /// Helper method to load from a file.
-    static Image load(const std::string &);
+    // /// Helper method to load from a file.
+    // static Image load(const std::string &);
 
 private:
     ImageProxy _proxy;

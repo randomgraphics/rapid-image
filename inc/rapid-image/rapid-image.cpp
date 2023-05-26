@@ -846,23 +846,23 @@ void Image::construct(const void * initialContent, size_t initialContentSizeInby
 //     return {};
 // }
 
-// ---------------------------------------------------------------------------------------------------------------------
-//
-Image Image::load(const void * data, size_t size) {
-    auto str = std::string((const char *) data, size);
-    auto iss = std::istringstream(str);
-    return load(iss);
-}
+// // ---------------------------------------------------------------------------------------------------------------------
+// //
+// Image Image::load(const void * data, size_t size) {
+//     auto str = std::string((const char *) data, size);
+//     auto iss = std::istringstream(str);
+//     return load(iss);
+// }
 
-// ---------------------------------------------------------------------------------------------------------------------
-//
-Image Image::load(const std::string & filename) {
-    std::ifstream f(filename, std::ios::binary);
-    if (!f.good()) {
-        RAPID_IMAGE_LOGE("Failed to open image file %s : errno=%d", filename.c_str(), errno);
-        return {};
-    }
-    return load(f);
-}
+// // ---------------------------------------------------------------------------------------------------------------------
+// //
+// Image Image::load(const std::string & filename) {
+//     std::ifstream f(filename, std::ios::binary);
+//     if (!f.good()) {
+//         RAPID_IMAGE_LOGE("Failed to open image file %s : errno=%d", filename.c_str(), errno);
+//         return {};
+//     }
+//     return load(f);
+// }
 
 } // namespace RAPID_IMAGE_NAMESPACE
