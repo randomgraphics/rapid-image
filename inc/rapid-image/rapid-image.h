@@ -207,6 +207,173 @@ format(const char * format, ...) {
 inline std::string format() { return ""s; }
 
 // ---------------------------------------------------------------------------------------------------------------------
+
+union uint128_t {
+    struct {
+        uint64_t lo;
+        uint64_t hi;
+    };
+    uint8_t  u8[16];
+    uint16_t u16[8];
+    uint32_t u32[4];
+    uint64_t u64[2];
+    float    f32[4];
+
+    static inline uint128_t make(const void * data, size_t size) {
+        RII_ASSERT(size <= 16);
+        uint128_t r   = {};
+        auto      src = (const uint8_t *) data;
+        auto      end = src + size;
+        for (auto dst = r.u8; src < end; ++src, ++dst) { *dst = *src; }
+        return r;
+    }
+
+    uint32_t segment(uint32_t offset, uint32_t count) const {
+        uint64_t mask = (count < 64) ? ((((uint64_t) 1) << count) - 1) : (uint64_t) -1;
+        if (offset + count <= 64) {
+            return (uint32_t) ((lo >> offset) & mask);
+        } else if (offset >= 64) {
+            return (uint32_t) (hi >> (offset - 64) & mask);
+        } else {
+            // This means the segment is crossing the low and hi
+            RII_THROW("unsupported yet.");
+        }
+    }
+    void set(uint32_t value, uint32_t offset, uint32_t count) {
+        uint64_t mask = (count < 64) ? ((((uint64_t) 1) << count) - 1) : (uint64_t) -1;
+        if (offset + count <= 64) {
+            lo |= (value & mask) << offset;
+        } else if (offset >= 64) {
+            hi |= (value & mask) << (offset - 64);
+        } else {
+            // This means the segment is crossing the low and hi
+            RII_THROW("unsupported yet.");
+        }
+    }
+};
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+/// @brief Represents one RGBA8 pixel
+union RGBA8 {
+    struct {
+        uint8_t x, y, z, w;
+    };
+    struct {
+        uint8_t r, g, b, a;
+    };
+    uint32_t u32;
+    int32_t  i32;
+    uint8_t  u8[4];
+    int8_t   i8[4];
+    char     c8[4];
+
+    static RGBA8 make(uint8_t r, uint8_t g = 0, uint8_t b = 0, uint8_t a = 0) { return {{r, g, b, a}}; }
+
+    static RGBA8 make(float r, float g, float b, float a) {
+        return {{static_cast<uint8_t>(std::clamp(r, 0.f, 1.f) * 255.0f), static_cast<uint8_t>(std::clamp(g, 0.f, 1.f) * 255.0f),
+                 static_cast<uint8_t>(std::clamp(b, 0.f, 1.f) * 255.0f), static_cast<uint8_t>(std::clamp(a, 0.f, 1.f) * 255.0f)}};
+    }
+
+    static RGBA8 make(const uint8_t * p) { return {{p[0], p[1], p[2], p[3]}}; }
+
+    static RGBA8 make(uint32_t u) {
+        RGBA8 result;
+        result.u32 = u;
+        return result;
+    }
+
+    void set(uint8_t r_, uint8_t g_ = 0, uint8_t b_ = 0, uint8_t a_ = 0) {
+        r = r_;
+        g = g_;
+        b = b_;
+        a = a_;
+    }
+};
+static_assert(sizeof(RGBA8) == 4, "");
+
+/// @brief Represents one RGBA16F pixel
+union half4 {
+    struct {
+        uint16_t x, y, z, w;
+    };
+    struct {
+        uint16_t r, g, b, a;
+    };
+    uint16_t u16[4];
+    int16_t  i16[4];
+    uint32_t u32[2];
+    int32_t  i32[2];
+    uint64_t u64;
+    int64_t  i64;
+
+    static half4 make(uint16_t r, uint16_t g, uint16_t b, uint16_t a) { return {{r, g, b, a}}; }
+
+    static half4 make(const uint16_t * p) { return {{p[0], p[1], p[2], p[3]}}; }
+};
+
+/// @brief Represents one RGBA32F pixel
+union float4 {
+    struct {
+        float x, y, z, w;
+    };
+    struct {
+        float r, g, b, a;
+    };
+    float     f32[4];
+    uint32_t  u32[4];
+    int32_t   i32[4];
+    uint64_t  u64[2];
+    int64_t   i64[2];
+    uint128_t u128;
+
+    static float4 make(float r, float g, float b, float a) { return {{r, g, b, a}}; }
+
+    static float4 make(const float * p) { return {{p[0], p[1], p[2], p[3]}}; }
+
+    float4 & operator+=(const float4 & v) {
+        x += v.x;
+        y += v.y;
+        z += v.z;
+        w += v.w;
+        return *this;
+    }
+
+    float4 & operator-=(const float4 & v) {
+        x -= v.x;
+        y -= v.y;
+        z -= v.z;
+        w -= v.w;
+        return *this;
+    }
+
+    float4 & operator*=(const float4 & v) {
+        x *= v.x;
+        y *= v.y;
+        z *= v.z;
+        w *= v.w;
+        return *this;
+    }
+
+    float4 & operator/=(const float4 & v) {
+        x /= v.x;
+        y /= v.y;
+        z /= v.z;
+        w /= v.w;
+        return *this;
+    }
+
+    float4 & operator*=(float v) {
+        x *= v;
+        y *= v;
+        z *= v;
+        w *= v;
+        return *this;
+    }
+};
+static_assert(sizeof(float4) == 128 / 8, "");
+
+// ---------------------------------------------------------------------------------------------------------------------
 /// @brief Pixel format structure
 union PixelFormat {
     struct {
@@ -518,6 +685,12 @@ union PixelFormat {
     /// Get bytes-per-pixel-block
     ///
     constexpr uint8_t bytesPerBlock() const { return LAYOUTS[layout].blockBytes; }
+
+    /// @brief Load uncompressed pixel value from float4. Do not support compressed format.
+    uint128_t fromFloat4(const float4 &) const;
+
+    /// @brief Store uncompressed pixel value to float4.
+    float4 toFloat4(const void *) const;
 
     ///
     /// convert to bool
@@ -836,85 +1009,34 @@ inline constexpr uint32_t makeBGRA8(T r, T g, T b, T a) {
     // clang-format on
 }
 
-/// @brief Represents one RGBA8 pixel
-union RGBA8 {
-    struct {
-        uint8_t x, y, z, w;
-    };
-    struct {
-        uint8_t r, g, b, a;
-    };
-    uint32_t u32;
-    int32_t  i32;
-    uint8_t  u8[4];
-    int8_t   i8[4];
-    char     c8[4];
-
-    static RGBA8 make(uint8_t r, uint8_t g = 0, uint8_t b = 0, uint8_t a = 0) { return {{r, g, b, a}}; }
-
-    static RGBA8 make(float r, float g, float b, float a) {
-        return {{static_cast<uint8_t>(std::clamp(r, 0.f, 1.f) * 255.0f), static_cast<uint8_t>(std::clamp(g, 0.f, 1.f) * 255.0f),
-                 static_cast<uint8_t>(std::clamp(b, 0.f, 1.f) * 255.0f), static_cast<uint8_t>(std::clamp(a, 0.f, 1.f) * 255.0f)}};
-    }
-
-    static RGBA8 make(const uint8_t * p) { return {{p[0], p[1], p[2], p[3]}}; }
-
-    static RGBA8 make(uint32_t u) {
-        RGBA8 result;
-        result.u32 = u;
-        return result;
-    }
-
-    void set(uint8_t r_, uint8_t g_ = 0, uint8_t b_ = 0, uint8_t a_ = 0) {
-        r = r_;
-        g = g_;
-        b = b_;
-        a = a_;
-    }
-};
-static_assert(sizeof(RGBA8) == 4, "");
-
-/// @brief Represents one RGBA16F pixel
-union half4 {
-    struct {
-        uint16_t x, y, z, w;
-    };
-    struct {
-        uint16_t r, g, b, a;
-    };
-    uint16_t u16[4];
-    int16_t  i16[4];
-    uint32_t u32[2];
-    int32_t  i32[2];
-    uint64_t u64;
-    int64_t  i64;
-
-    static half4 make(uint16_t r, uint16_t g, uint16_t b, uint16_t a) { return {{r, g, b, a}}; }
-
-    static half4 make(const uint16_t * p) { return {{p[0], p[1], p[2], p[3]}}; }
-};
-
-/// @brief Represents one RGBA32F pixel
-union float4 {
-    struct {
-        float x, y, z, w;
-    };
-    struct {
-        float r, g, b, a;
-    };
-    float    f32[4];
-    uint32_t u32[4];
-    int32_t  i32[4];
-    uint64_t u64[2];
-    int64_t  i64[2];
-
-    static float4 make(float r, float g, float b, float a) { return {{r, g, b, a}}; }
-
-    static float4 make(const float * p) { return {{p[0], p[1], p[2], p[3]}}; }
-};
-static_assert(sizeof(float4) == 128 / 8, "");
-
 class Image;
+
+struct Extent3D {
+    uint32_t w = 0; ///< width
+    uint32_t h = 0; ///< height
+    uint32_t d = 0; ///< depth;
+
+    Extent3D & set(uint32_t w_, uint32_t h_ = 1, uint32_t d_ = 1) {
+        w = w_;
+        h = h_;
+        d = d_;
+        return *this;
+    }
+
+    bool empty() const { return 0 == w || 0 == h || 0 == d; }
+
+    bool operator==(const Extent3D & rhs) const { return w == rhs.w && h == rhs.h && d == rhs.d; }
+
+    bool operator!=(const Extent3D & rhs) const { return w != rhs.w || h != rhs.h || d != rhs.d; }
+
+    bool operator<(const Extent3D & rhs) const {
+        if (w != rhs.w) return w < rhs.w;
+        if (h != rhs.h) return h < rhs.h;
+        return d < rhs.d;
+    }
+
+    static Extent3D make(uint32_t w_, uint32_t h_ = 1, uint32_t d_ = 1) { return {w_, h_, d_}; }
+};
 
 /// This represents a single 1D/2D/3D image plan. This is the building block of more complex image structures like
 /// cube/array images, mipmap chains and etc.
@@ -922,14 +1044,8 @@ struct PlaneDesc {
     /// pixel format
     PixelFormat format = PixelFormat::UNKNOWN();
 
-    /// Plane width in pixels
-    uint32_t width = 0;
-
-    /// Plane height in pixels
-    uint32_t height = 0;
-
-    /// Plane depth in pixels
-    uint32_t depth = 0;
+    /// Extent of the plane
+    Extent3D extent {};
 
     /// bytes (not BITS) from one pixel or pixel block to the next. Minimal valid value is pixel or pixel block size.
     uint32_t step = 0;
@@ -948,26 +1064,29 @@ struct PlaneDesc {
     uint32_t offset = 0;
 
     /// Create a new image plane descriptor
-    static PlaneDesc make(PixelFormat format, size_t width, size_t height = 1, size_t depth = 1, size_t step = 0, size_t pitch = 0, size_t slice = 0);
+    static PlaneDesc make(PixelFormat format, const Extent3D & extent, size_t step = 0, size_t pitch = 0, size_t slice = 0);
 
     PlaneDesc & setFormat(PixelFormat format_) {
         format = format_;
         return *this;
     }
 
+    PlaneDesc & setExtent(const Extent3D & e) {
+        extent = e;
+        return *this;
+    }
+
     PlaneDesc & setExtent(size_t width_, size_t height_ = 1, size_t depth_ = 1) {
-        width  = width_;
-        height = height_;
-        depth  = depth_;
+        extent.set(width_, height_, depth_);
         return *this;
     }
 
     PlaneDesc & setSpacing(size_t step_, size_t pitch_ = 0, size_t slice_ = 0) {
         RII_REQUIRE(format.valid(), "must call this after setting the pixel format.");
         const auto & fd = format.layoutDesc();
-        RII_REQUIRE(width > 0 && height > 0 && depth > 0, "must call this after setting the plane extent.");
-        auto numBlocksPerRow = (uint32_t) ((width + fd.blockWidth - 1) / fd.blockWidth);
-        auto numBlocksPerCol = (uint32_t) ((height + fd.blockHeight - 1) / fd.blockHeight);
+        RII_REQUIRE(!extent.empty(), "must call this after setting the plane extent.");
+        auto numBlocksPerRow = (uint32_t) ((extent.w + fd.blockWidth - 1) / fd.blockWidth);
+        auto numBlocksPerCol = (uint32_t) ((extent.h + fd.blockHeight - 1) / fd.blockHeight);
         step                 = std::max((uint32_t) step_, (uint32_t) (fd.blockBytes));
         pitch                = std::max(step * numBlocksPerRow, (uint32_t) pitch_);
         slice                = std::max(pitch * numBlocksPerCol, (uint32_t) slice_);
@@ -976,7 +1095,7 @@ struct PlaneDesc {
 
     /// returns offset from start of data buffer for a particular pixel within the plane
     size_t pixel(size_t x, size_t y, size_t z = 0) const {
-        RII_ASSERT(x < width && y < height && z < depth);
+        RII_ASSERT(x < extent.w && y < extent.h && z < extent.d);
         auto & ld = format.layoutDesc();
         RII_ASSERT((x % ld.blockWidth) == 0 && (y % ld.blockHeight) == 0);
         size_t r = z * slice + y / ld.blockHeight * pitch + x / ld.blockWidth * step;
@@ -1013,14 +1132,15 @@ struct PlaneDesc {
     /// Load data to specific slice of image plane from float4 data.
     void fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void * src) const;
 
-    // Image generateMipmaps(const void * pixels) const;
+    /// @brief Generate full mipmap chain from this image plane.
+    /// @param pixels The pixel data. The layout of the data must match the plane descriptor.
+    /// @param maxLevels The maximum number of mipmap levels to generate. Set t0 0 to generate full mipmap chain.
+    Image generateMipmaps(const void * pixels, size_t maxLevels = 0) const;
 
     bool operator==(const PlaneDesc & rhs) const {
         // clang-format off
         return format == rhs.format
-            && width  == rhs.width
-            && height == rhs.height
-            && depth  == rhs.depth
+            && extent == rhs.extent
             && step   == rhs.step
             && pitch  == rhs.pitch
             && slice  == rhs.slice
@@ -1034,9 +1154,7 @@ struct PlaneDesc {
     bool operator<(const PlaneDesc & rhs) const {
         // clang-format off
         if (format != rhs.format) return format < rhs.format;
-        if (width  != rhs.width)  return width  < rhs.width;
-        if (height != rhs.height) return height < rhs.height;
-        if (depth  != rhs.depth)  return depth  < rhs.depth;
+        if (extent != rhs.extent) return extent < rhs.extent;
         if (step   != rhs.step)   return step   < rhs.step;
         if (pitch  != rhs.pitch)  return pitch  < rhs.pitch;
         if (slice  != rhs.slice)  return slice  < rhs.slice;
@@ -1060,17 +1178,22 @@ private:
 /// Represent a complex image with optional mipmap chain
 ///
 struct ImageDesc {
-
     // ****************************
     /// \name member data
     // ****************************
 
     //@{
 
-    std::vector<PlaneDesc> planes;     ///< length of array = layers * mips;
+    /// @brief Image plane array.
+    /// Length of the array should always be (layers * levels), in mip level major fashion. Index, layer and level
+    /// can be calculated as follows:
+    ///  - index = level * layers + layer
+    ///  - level = index / layers
+    ///  - layer = index % layers
+    std::vector<PlaneDesc> planes;
     uint32_t               layers = 0; ///< number of layers
     uint32_t               levels = 0; ///< number of mipmap levels
-    uint32_t               size   = 0; ///< total size in bytes;
+    uint32_t               size   = 0; ///< total size in bytes of the whole image.
 
     //@}
 
@@ -1108,20 +1231,20 @@ struct ImageDesc {
         /// In this mode, pixels from same mipmap level are packed together. For example, given a cubemap with
         /// 6 faces and 3 mipmap levels, the pixels are packed in memory in this order:
         ///
-        ///     face 0, mip 0
-        ///     face 1, mip 0
-        ///     ...
-        ///     face 5, mip 0
+        ///     mip 0, face 0
+        ///     mip 0, face 1
+        ///     mip 0, ...
+        ///     mip 0, face 5
         ///
-        ///     face 0, mip 1
-        ///     face 1, mip 1
-        ///     ...
-        ///     face 5, mip 1
+        ///     mip 1, face 0
+        ///     mip 1, face 1
+        ///     mip 1, ...
+        ///     mip 1, face 5
         ///
-        ///     face 0, mip 2
-        ///     face 1, mip 2
-        ///     ...
-        ///     face 5, mip 2
+        ///     mip 2, face 0
+        ///     mip 2, face 1
+        ///     mip 2, ...
+        ///     mip 2, face 5
         MIP_MAJOR,
     };
 
@@ -1210,9 +1333,10 @@ struct ImageDesc {
     const PlaneDesc & plane (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)]; }
     PlaneDesc       & plane (size_t layer = 0, size_t level = 0)       { return planes[index(layer, level)]; }
     PixelFormat       format(size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].format; }
-    uint32_t          width (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].width; }
-    uint32_t          height(size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].height; }
-    uint32_t          depth (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].depth; }
+    const Extent3D &  extent(size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].extent; }
+    uint32_t          width (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].extent.w; }
+    uint32_t          height(size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].extent.h; }
+    uint32_t          depth (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].extent.d; }
     uint32_t          step  (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].step; }
     uint32_t          pitch (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].pitch; }
     uint32_t          slice (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].slice; }
@@ -1229,7 +1353,12 @@ struct ImageDesc {
         return r;
     }
 
-    // void vertFlipInpace(void * pixels, size_t sizeInBytes);
+    /// @brief Calculate plane index based on layer and level.
+    size_t index(size_t layer, size_t level) const {
+        RII_ASSERT(layer < layers);
+        RII_ASSERT(level < levels);
+        return (level * layers) + layer;
+    }
 
     bool operator==(const ImageDesc & rhs) const { return planes == rhs.planes && layers == rhs.layers && levels == rhs.levels && size == rhs.size; }
 
@@ -1249,12 +1378,6 @@ struct ImageDesc {
     }
 
 private:
-    /// return plane index
-    size_t index(size_t layer, size_t level) const {
-        RII_ASSERT(layer < layers);
-        RII_ASSERT(level < levels);
-        return (level * layers) + layer;
-    }
 };
 
 /// Image descriptor combined with a pointer to pixel array. This is a convenient helper class for passing image
@@ -1272,13 +1395,14 @@ struct ImageProxy {
     /// \name query properties of the specific plane.
     //@{
     // clang-format off
-    PixelFormat format(size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).format; }
-    uint32_t    width (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).width; }
-    uint32_t    height(size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).height; }
-    uint32_t    depth (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).depth; }
-    uint32_t    step  (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).step; }
-    uint32_t    pitch (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).pitch; }
-    uint32_t    slice (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).slice; }
+    PixelFormat      format(size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).format; }
+    const Extent3D & extent(size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).extent; }
+    uint32_t         width (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).extent.w; }
+    uint32_t         height(size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).extent.h; }
+    uint32_t         depth (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).extent.d; }
+    uint32_t         step  (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).step; }
+    uint32_t         pitch (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).pitch; }
+    uint32_t         slice (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).slice; }
     // clang-format on
     //@}
 
@@ -1326,7 +1450,7 @@ public:
     const ImageDesc & desc() const { return _proxy.desc; }
 
     /// return descriptor of a image plane
-    const PlaneDesc & desc(size_t layer, size_t level) const { return _proxy.desc.plane(layer, level); }
+    const PlaneDesc & plane(size_t layer, size_t level) const { return _proxy.desc.plane(layer, level); }
 
     /// return pointer to pixel buffer.
     const uint8_t * data() const { return _proxy.data; }
@@ -1345,24 +1469,28 @@ public:
     /// \name query properties of the specific plane.
     //@{
     // clang-format off
-    PixelFormat format(size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).format; }
-    uint32_t    width (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).width; }
-    uint32_t    height(size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).height; }
-    uint32_t    depth (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).depth; }
-    uint32_t    step  (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).step; }
-    uint32_t    pitch (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).pitch; }
-    uint32_t    slice (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).slice; }
+    PixelFormat      format(size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).format; }
+    const Extent3D & extent(size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).extent; }
+    uint32_t         width (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).extent.w; }
+    uint32_t         height(size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).extent.h; }
+    uint32_t         depth (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).extent.d; }
+    uint32_t         step  (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).step; }
+    uint32_t         pitch (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).pitch; }
+    uint32_t         slice (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).slice; }
     // clang-format on
     //@}
 
     /// reset to an empty image
     void clear();
 
-    /// make a clone of the current image.
+    /// @brief Make a clone of the current image.
+    /// Cloning image is a very costly operation, involving memory allocation and data copy. This is why the
+    /// copy constructor and copy operator are disabled. If you want to make a copy of the image, use this method and be
+    /// aware of the memory and performance cost of it.
     Image clone() const { return Image(desc(), data()); }
 
-    /// Save certain plane to disk file.
-    void save(const std::string & filename, size_t layer, size_t level) const { desc().plane(layer, level).save(filename, proxy().pixel(layer, level)); }
+    // /// Save certain plane to disk file.
+    // void save(const std::string & filename, size_t layer, size_t level) const { desc().plane(layer, level).save(filename, proxy().pixel(layer, level)); }
 
     // /// \name Image loading utilities
     // //@{
@@ -1395,9 +1523,9 @@ struct hash<RAPID_IMAGE_NAMESPACE::PlaneDesc> {
 
         // Hash the members.
         hash = 79 * hash + (size_t) key.format;
-        hash = 79 * hash + (size_t) key.width;
-        hash = 79 * hash + (size_t) key.height;
-        hash = 79 * hash + (size_t) key.depth;
+        hash = 79 * hash + (size_t) key.extent.w;
+        hash = 79 * hash + (size_t) key.extent.h;
+        hash = 79 * hash + (size_t) key.extent.d;
         hash = 79 * hash + (size_t) key.step;
         hash = 79 * hash + (size_t) key.pitch;
         hash = 79 * hash + (size_t) key.slice;

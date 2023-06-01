@@ -47,15 +47,15 @@ bool PlaneDesc::valid() const {
     }
 
     // check dimension
-    if (0 == width || 0 == height || 0 == depth) {
+    if (extent.empty()) {
         RAPID_IMAGE_LOGE("dimension can't zero!");
         return false;
     }
 
     // check pitches
     auto & cld             = format.layoutDesc();
-    auto   numBlocksPerRow = (uint32_t) ((width + cld.blockWidth - 1) / cld.blockWidth);
-    auto   numBlocksPerCol = (uint32_t) ((height + cld.blockHeight - 1) / cld.blockHeight);
+    auto   numBlocksPerRow = (uint32_t) ((extent.w + cld.blockWidth - 1) / cld.blockWidth);
+    auto   numBlocksPerCol = (uint32_t) ((extent.h + cld.blockHeight - 1) / cld.blockHeight);
     if (step < cld.blockBytes) {
         RAPID_IMAGE_LOGE("step is too small!");
         return false;
@@ -68,7 +68,7 @@ bool PlaneDesc::valid() const {
         RAPID_IMAGE_LOGE("slice is too small!");
         return false;
     }
-    if (size < slice * depth) {
+    if (size < slice * extent.d) {
         RAPID_IMAGE_LOGE("size is too small!");
         return false;
     }
@@ -90,7 +90,7 @@ bool PlaneDesc::valid() const {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-PlaneDesc PlaneDesc::make(PixelFormat format, size_t width, size_t height, size_t depth, size_t step, size_t pitch, size_t slice) {
+PlaneDesc PlaneDesc::make(PixelFormat format, const Extent3D & extent, size_t step, size_t pitch, size_t slice) {
     if (!format.valid()) {
         RAPID_IMAGE_LOGE("invalid color format: 0x%X", format.u32);
         return {};
@@ -106,71 +106,29 @@ PlaneDesc PlaneDesc::make(PixelFormat format, size_t width, size_t height, size_
     // alignment = ceilPowerOf2(std::max((uint32_t)alignment, (uint32_t)fd.blockBytes));
 
     PlaneDesc p;
-    p.format = format;
-    p.width  = (uint32_t) (width ? width : 1);
-    p.height = (uint32_t) (height ? height : 1);
-    p.depth  = (uint32_t) (depth ? depth : 1);
+    p.format   = format;
+    p.extent.w = extent.w ? extent.w : 1;
+    p.extent.h = extent.h ? extent.h : 1;
+    p.extent.d = extent.d ? extent.d : 1;
     // Check for ASTC format enumerations
     p.step = std::max((uint32_t) step, (uint32_t) (fd.blockBytes));
     // p.alignment = (uint32_t)alignment;
 
     // calculate row pitch, aligned to rowAlignment.
     // Note that we can't just use nextMultiple here, since rowAlignment might not be power of 2.
-    auto numBlocksPerRow = (uint32_t) ((width + fd.blockWidth - 1) / fd.blockWidth);
+    auto numBlocksPerRow = (uint32_t) ((extent.w + fd.blockWidth - 1) / fd.blockWidth);
     p.pitch              = std::max(p.step * numBlocksPerRow, (uint32_t) pitch);
-    auto numBlocksPerCol = (uint32_t) ((height + fd.blockHeight - 1) / fd.blockHeight);
+    auto numBlocksPerCol = (uint32_t) ((extent.h + fd.blockHeight - 1) / fd.blockHeight);
     p.slice              = std::max(p.pitch * numBlocksPerCol, (uint32_t) slice);
     RII_ASSERT(p.pitch > 0 && p.slice > 0);
 
     // calculate plane size of the image.
-    p.size = p.slice * p.depth;
+    p.size = p.slice * p.extent.d;
 
     // done
     RII_ASSERT(p.valid());
     return p;
 }
-
-// ---------------------------------------------------------------------------------------------------------------------
-
-union uint128_t {
-    struct {
-        uint64_t lo;
-        uint64_t hi;
-    };
-    uint8_t u8[16];
-
-    static inline uint128_t make(const void * data, size_t size) {
-        RII_ASSERT(size <= 16);
-        uint128_t r   = {};
-        auto      src = (const uint8_t *) data;
-        auto      end = src + size;
-        for (auto dst = r.u8; src < end; ++src, ++dst) { *dst = *src; }
-        return r;
-    }
-
-    uint32_t segment(uint32_t offset, uint32_t count) const {
-        uint64_t mask = (count < 64) ? ((((uint64_t) 1) << count) - 1) : (uint64_t) -1;
-        if (offset + count <= 64) {
-            return (uint32_t) ((lo >> offset) & mask);
-        } else if (offset >= 64) {
-            return (uint32_t) (hi >> (offset - 64) & mask);
-        } else {
-            // This means the segment is crossing the low and hi
-            RII_THROW("unsupported yet.");
-        }
-    }
-    void set(uint32_t value, uint32_t offset, uint32_t count) {
-        uint64_t mask = (count < 64) ? ((((uint64_t) 1) << count) - 1) : (uint64_t) -1;
-        if (offset + count <= 64) {
-            lo |= (value & mask) << offset;
-        } else if (offset >= 64) {
-            hi |= (value & mask) << (offset - 64);
-        } else {
-            // This means the segment is crossing the low and hi
-            RII_THROW("unsupported yet.");
-        }
-    }
-};
 
 // ---------------------------------------------------------------------------------------------------------------------
 /// Convert a float to one color channel, based on the INITIAL channel format/sign prior to the reconversion
@@ -333,15 +291,17 @@ static inline float tofloat(uint32_t value, uint32_t width, PixelFormat::Sign si
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-/// Convert back to pixels of an arbitrary format from float4. Do not support compressed format.
-static inline uint128_t convertFromFloat4(const PixelFormat::LayoutDesc & ld, const PixelFormat & format, const float4 & pixel) {
+//
+uint128_t PixelFormat::fromFloat4(const float4 & pixel) const {
+    const PixelFormat::LayoutDesc & ld = layoutDesc();
+
     RII_ASSERT(1 == ld.blockWidth && 1 == ld.blockHeight); // do not support compressed format.
 
     uint128_t result = {};
 
     auto convertToChannel = [&](uint32_t swizzle) {
         const auto & ch   = ld.channels[swizzle];
-        auto         sign = (PixelFormat::Sign)((swizzle < 3) ? format.sign012 : format.sign3);
+        auto         sign = (PixelFormat::Sign)((swizzle < 3) ? sign012 : sign3);
         uint32_t     value;
         switch (swizzle) {
         case PixelFormat::SWIZZLE_X:
@@ -368,30 +328,32 @@ static inline uint128_t convertFromFloat4(const PixelFormat::LayoutDesc & ld, co
         result.set(value, ch.shift, ch.bits);
     };
 
-    convertToChannel(format.swizzle0);
-    convertToChannel(format.swizzle1);
-    convertToChannel(format.swizzle2);
-    convertToChannel(format.swizzle3);
+    convertToChannel(swizzle0);
+    convertToChannel(swizzle1);
+    convertToChannel(swizzle2);
+    convertToChannel(swizzle3);
     return result;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 /// Convert pixel of arbitrary format to float4. Do not support compressed format.
-static inline float4 convertNonCompressedPixelToFloat4(const PixelFormat::LayoutDesc & ld, const PixelFormat & format, const void * pixel) {
+float4 PixelFormat::toFloat4(const void * pixel) const {
+    const PixelFormat::LayoutDesc & ld = layoutDesc();
+
     RII_ASSERT(1 == ld.blockWidth && 1 == ld.blockHeight); // do not support compressed format.
 
     auto src = uint128_t::make(pixel, ld.blockBytes);
 
-    // labmda to convert one channel
+    // lambda to convert one channel
     auto convertChannel = [&](uint32_t swizzle) {
         if (PixelFormat::SWIZZLE_0 == swizzle) return 0.f;
         if (PixelFormat::SWIZZLE_1 == swizzle) return 1.f;
         const auto & ch   = ld.channels[swizzle];
-        auto         sign = (PixelFormat::Sign)((swizzle < 3) ? format.sign012 : format.sign3);
+        auto         sign = (PixelFormat::Sign)((swizzle < 3) ? sign012 : sign3);
         return tofloat(src.segment(ch.shift, ch.bits), ch.bits, sign);
     };
 
-    return float4::make(convertChannel(format.swizzle0), convertChannel(format.swizzle1), convertChannel(format.swizzle2), convertChannel(format.swizzle3));
+    return float4::make(convertChannel(swizzle0), convertChannel(swizzle1), convertChannel(swizzle2), convertChannel(swizzle3));
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -402,12 +364,12 @@ static void convertToRGBA8(RGBA8 * result, const PixelFormat::LayoutDesc & ld, c
         *result = *(const RGBA8 *) src;
     } else if (1 == ld.blockWidth && 1 == ld.blockHeight) {
         // this is the general case that could in theory handle any format.
-        auto f4 = convertNonCompressedPixelToFloat4(ld, format, src);
+        auto f4 = format.toFloat4(src);
         *result =
             RGBA8::make((uint8_t) std::clamp<uint32_t>((uint32_t) (f4.x * 255.0f), 0, 255), (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.y * 255.0f), 0, 255),
                         (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.z * 255.0f), 0, 255), (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.w * 255.0f), 0, 255));
-    } else if (PixelFormat::FIRST_ASTC_LAYOUT <= format.layout && format.layout <= PixelFormat::LAST_ASTC_LAYOUT) {
-        // decompress ASTC block
+    } else {
+        // decompressed format
         RII_THROW("NOT IMPLEMENTED");
     }
 }
@@ -450,19 +412,6 @@ float PixelFormat::getPixelChannelFloat(const void * pixel, size_t channel) {
 
     return tofloat(src.segment(channelDesc.shift, channelDesc.bits), channelDesc.bits, sign);
 }
-
-struct StbiStream {
-    std::ostream & stream;
-
-    StbiStream(std::ostream & s): stream(s) {}
-
-    ~StbiStream() { stream.flush(); }
-
-    static void write(void * context, void * data, int size) {
-        auto p = (StbiStream *) context;
-        p->stream.write((const char *) data, size);
-    }
-};
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
@@ -511,10 +460,10 @@ std::vector<float4> PlaneDesc::toFloat4(const void * pixels) const {
     }
     const uint8_t *     p = (const uint8_t *) pixels;
     std::vector<float4> colors;
-    colors.reserve(width * height * depth);
-    for (uint32_t z = 0; z < depth; ++z) {
-        for (uint32_t y = 0; y < height; ++y) {
-            for (uint32_t x = 0; x < width; ++x) { colors.push_back(convertNonCompressedPixelToFloat4(ld, format, p + pixel(x, y, z))); }
+    colors.reserve(extent.w * extent.h * extent.d);
+    for (uint32_t z = 0; z < extent.d; ++z) {
+        for (uint32_t y = 0; y < extent.h; ++y) {
+            for (uint32_t x = 0; x < extent.w; ++x) { colors.push_back(format.toFloat4(p + pixel(x, y, z))); }
         }
     }
     return colors;
@@ -532,18 +481,20 @@ std::vector<RGBA8> PlaneDesc::toRGBA8(const void * pixels) const {
     std::vector<RGBA8> colors;
     std::vector<RGBA8> block(ld.blockWidth * ld.blockHeight);
 
-    colors.resize(width * height * depth);
-    for (uint32_t z = 0; z < depth; ++z) {
-        for (uint32_t y = 0; y < height; y += ld.blockHeight) {
-            for (uint32_t x = 0; x < width; x += ld.blockWidth) {
+    colors.resize(extent.w * extent.h * extent.d);
+    for (uint32_t z = 0; z < extent.d; ++z) {
+        for (uint32_t y = 0; y < extent.h; y += ld.blockHeight) {
+            for (uint32_t x = 0; x < extent.w; x += ld.blockWidth) {
                 // convert the block
                 convertToRGBA8(block.data(), ld, format, p + pixel(x, y, z));
 
                 // copy the block to output buffer
-                uint32_t right  = std::min(x + ld.blockWidth, width);
-                uint32_t bottom = std::min(y + ld.blockHeight, height);
+                uint32_t right  = std::min(x + ld.blockWidth, extent.w);
+                uint32_t bottom = std::min(y + ld.blockHeight, extent.h);
                 for (uint32_t yy = y; yy < bottom; ++yy) {
-                    for (uint32_t xx = x; xx < right; ++xx) { colors[z * width * height + yy * width + xx] = block[(yy - y) * ld.blockWidth + (xx - x)]; }
+                    for (uint32_t xx = x; xx < right; ++xx) {
+                        colors[z * extent.w * extent.h + yy * extent.w + xx] = block[(yy - y) * ld.blockWidth + (xx - x)];
+                    }
                 }
             }
         }
@@ -564,42 +515,114 @@ void PlaneDesc::fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void *
         RAPID_IMAGE_LOGE("does not support loading pixel data to compressed image plane.");
         return;
     }
-    for (uint32_t y = 0; y < height; ++y) {
-        for (uint32_t x = 0; x < width; ++x) {
+    for (uint32_t y = 0; y < extent.h; ++y) {
+        for (uint32_t x = 0; x < extent.w; ++x) {
             size_t dstOffset = pixel(x, y, dstZ);
             if ((dstOffset + ld.blockBytes) > dstSize) {
                 RAPID_IMAGE_LOGE("Destination buffer size (%zu) is not large enough.", dstSize);
                 return;
             }
             uint8_t * d    = (uint8_t *) dst + dstOffset;
-            uint128_t temp = convertFromFloat4(ld, format, *(p + y * width + x));
+            uint128_t temp = format.fromFloat4(*(p + y * extent.w + x));
             memcpy(d, &temp, ld.blockBytes); // TODO: Can we avoid this memcpy's?
         }
     }
 }
 
-// // ---------------------------------------------------------------------------------------------------------------------
-// //
-// Image PlaneDesc::generateMipmaps(const void * pixels) const {
-//     RII_REQUIRE(depth == 1);
+// ---------------------------------------------------------------------------------------------------------------------
+//
+Image PlaneDesc::generateMipmaps(const void * pixels, size_t maxLevels) const {
+    struct Local {
+        // static int imax(int a, int b) {
+        //     if (a > b) return a;
+        //     return b;
+        // }
 
-//     Image  ri           = Image(ImageDesc(PlaneDesc::make(PixelFormat::FLOAT4(), width, height), 1, 0));
-//     auto      baseMap      = toFloat4(pixels);
-//     uint8_t * baseMapAlloc = ri.data();
-//     memcpy(baseMapAlloc, baseMap.data(), baseMap.size() * sizeof(float4));
-//     Image result = Image(ImageDesc(PlaneDesc::make(format, width, height), 1, 0));
+        // static int imin(int a, int b) {
+        //     if (a < b) return a;
+        //     return b;
+        // }
 
-//     result.desc().plane().fromFloat4(result.data(), result.size(), 0, baseMapAlloc);
+        // static float lerp(float v0, float v1) { return 0.5f * v0 + 0.5f * v1; }
 
-//     for (size_t i = 1; i < ri.desc().levels; ++i) {
-//         uint8_t * mipAlloc = ri.data() + ri.desc().pixel(0, i);
-//         MipmapGenerator::generateMipmap((float4 *) mipAlloc, (const float4 *) (ri.data() + ri.desc().pixel(0, i - 1)), ri.desc(0, i - 1).width,
-//                                         ri.desc(0, i - 1).height, ri.desc(0, i).width, ri.desc(0, i).height);
-//         result.desc().plane(0, i).fromFloat4(result.data(), result.size(), 0, mipAlloc);
-//     }
+        // static float4 lerpPixel(const float4 & p0, const float4 & p1) {
+        //     float4 result;
+        //     result.x = lerp(p0.x, p1.x);
+        //     result.y = lerp(p0.y, p1.y);
+        //     result.z = lerp(p0.z, p1.z);
+        //     result.w = lerp(p0.w, p1.w);
+        //     return result;
+        // }
 
-//     return result;
-// }
+        static void generateMipmap(uint8_t * data, const PlaneDesc & src, const PlaneDesc & dst) {
+            RII_ASSERT(src.extent.w == 1 || src.extent.w == dst.extent.w * 2);
+            RII_ASSERT(src.extent.h == 1 || src.extent.h == dst.extent.h * 2);
+            RII_ASSERT(src.extent.d == 1 || src.extent.d == dst.extent.d * 2);
+            auto sx = src.extent.w / dst.extent.w;
+            auto sy = src.extent.h / dst.extent.h;
+            auto sz = src.extent.d / dst.extent.d;
+            auto pc = sx * sy * sz;                       // pixel count
+            auto ps = src.format.layoutDesc().blockBytes; // pixel size
+            RII_ASSERT(pc <= 8);
+            RII_ASSERT(ps <= sizeof(uint128_t));
+            for (size_t z = 0; z < dst.extent.d; ++z) {
+                for (size_t y = 0; y < dst.extent.h; ++y) {
+                    for (size_t x = 0; x < dst.extent.w; ++x) {
+                        // [x * sx, y * sy, z * sz] defines the corner pixel in the source image
+                        // [sx, sy, sz] defines the extent of the pixel block in the source image
+                        float4 sum = {{0.0f, 0.0f, 0.0f, 0.0f}};
+                        for (size_t i = 0; i < pc; ++i) {
+                            auto xx = x * sx + i % sx;
+                            auto yy = y * sy + (i / sx) % sy;
+                            auto zz = z * sz + i / (sx * sy);
+                            sum += src.format.toFloat4(data + src.pixel(xx, yy, zz));
+                        }
+                        sum *= 1.0f / pc;
+                        auto avg = dst.format.fromFloat4(sum);
+                        memcpy(data + dst.pixel(x, y, z), &avg, ps);
+                    }
+                }
+            }
+            // float widthDivisor  = static_cast<float>(imax(static_cast<int>(dstWidth) - 1, 1));
+            // float heightDivisor = static_cast<float>(imax(static_cast<int>(dstHeight) - 1, 1));
+            // for (int i = 0; i < static_cast<int>(dstHeight); ++i) {
+            //     int y0 = static_cast<int>(i * (static_cast<int>(srcHeight) - 1) / heightDivisor);
+            //     int y1 = imin(y0 + 1, static_cast<int>(srcHeight) - 1);
+            //     for (int j = 0; j < static_cast<int>(dstWidth); ++j) {
+            //         int    x0               = static_cast<int>(j * (static_cast<int>(srcWidth) - 1) / widthDivisor);
+            //         int    x1               = imin(x0 + 1, static_cast<int>(srcWidth) - 1);
+            //         float4 p0               = src[(srcWidth * y0) + x0];m
+            //         float4 p1               = src[(srcWidth * y0) + x1];
+            //         float4 p2               = src[(srcWidth * y1) + x0];
+            //         float4 p3               = src[(srcWidth * y1) + x1];
+            //         float4 v0               = lerpPixel(p0, p1);
+            //         float4 v1               = lerpPixel(p2, p3);
+            //         float4 pixel            = lerpPixel(v0, v1);
+            //         dst[(dstWidth * i) + j] = pixel;
+            //     }
+            // }
+        }
+    };
+
+    // create the result image
+    Image        result = Image(ImageDesc {}.reset(PlaneDesc::make(format, extent), 1, maxLevels));
+    const auto & desc   = result.desc();
+
+    // Copy data into the base map of the result image.
+    auto & base = result.plane(0, 0);
+    memcpy(result.data() + base.offset, pixels, base.size);
+
+    for (size_t i = 0; i < desc.planes.size(); ++i) {
+        size_t layer = i % desc.layers;
+        size_t level = i / desc.layers;
+        if (0 == level) continue; // skip the base map.
+        const auto & src = desc.planes[desc.index(layer, level - 1)];
+        const auto & dst = desc.planes[i];
+        Local::generateMipmap(result.data(), src, dst);
+    }
+
+    return result;
+}
 
 // *********************************************************************************************************************
 // ImageDesc
@@ -666,9 +689,9 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t l
     // calculate number of mipmap levels.
     {
         size_t maxLevels = 1;
-        size_t w         = baseMap.width;
-        size_t h         = baseMap.height;
-        size_t d         = baseMap.depth;
+        size_t w         = baseMap.extent.w;
+        size_t h         = baseMap.extent.h;
+        size_t d         = baseMap.extent.d;
         while (w > 1 || h > 1 || d > 1) {
             if (w > 1) w >>= 1;
             if (h > 1) h >>= 1;
@@ -693,10 +716,10 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t l
                 offset              = nextMultiple(mip.size + mip.offset, planeOffsetAlignment);
             }
             // next level
-            if (mip.width > 1) mip.width >>= 1;
-            if (mip.height > 1) mip.height >>= 1;
-            if (mip.depth > 1) mip.depth >>= 1;
-            mip = PlaneDesc::make(mip.format, mip.width, mip.height, mip.depth, mip.step, 0, 0);
+            if (mip.extent.w > 1) mip.extent.w >>= 1;
+            if (mip.extent.h > 1) mip.extent.h >>= 1;
+            if (mip.extent.d > 1) mip.extent.d >>= 1;
+            mip = PlaneDesc::make(mip.format, mip.extent, mip.step, 0, 0);
         }
     } else {
         // In this mode, the outer loop is faces/layers, the inner loop is mipmap levels
@@ -707,10 +730,10 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t l
                 planes[index(f, m)] = mip;
                 offset += mip.size;
                 // next level
-                if (mip.width > 1) mip.width >>= 1;
-                if (mip.height > 1) mip.height >>= 1;
-                if (mip.depth > 1) mip.depth >>= 1;
-                mip = PlaneDesc::make(mip.format, mip.width, mip.height, mip.depth, mip.step, 0, 0);
+                if (mip.extent.w > 1) mip.extent.w >>= 1;
+                if (mip.extent.h > 1) mip.extent.h >>= 1;
+                if (mip.extent.d > 1) mip.extent.d >>= 1;
+                mip = PlaneDesc::make(mip.format, mip.extent, mip.step, 0, 0);
             }
         }
     }
@@ -725,14 +748,14 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t l
 // ---------------------------------------------------------------------------------------------------------------------
 //
 ImageDesc & ImageDesc::set2D(PixelFormat format, size_t width, size_t height, size_t levels_, ConstructionOrder order, size_t planeOffsetAlignment) {
-    auto baseMap = PlaneDesc::make(format, width, height);
+    auto baseMap = PlaneDesc::make(format, {(uint32_t) width, (uint32_t) height, 1});
     return reset(baseMap, 1, levels_, order, planeOffsetAlignment);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
 ImageDesc & ImageDesc::setCube(PixelFormat format, size_t width, size_t levels_, ConstructionOrder order, size_t planeOffsetAlignment) {
-    auto baseMap = PlaneDesc::make(format, width, width);
+    auto baseMap = PlaneDesc::make(format, {(uint32_t) width, (uint32_t) width, 1});
     return reset(baseMap, 6, levels_, order, planeOffsetAlignment);
 }
 
