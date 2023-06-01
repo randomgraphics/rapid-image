@@ -1,5 +1,5 @@
 #define _CRT_SECURE_NO_WARNINGS
-#include "../ri.h"
+#include "../ril.h"
 #include "../3rd-party/catch2/catch.hpp"
 #include <cstdio>
 #include <filesystem>
@@ -7,30 +7,13 @@
 #include <chrono>
 #include <thread>
 
-using namespace rapid_image;
+using namespace ril;
 using namespace std::string_literals;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // quick test of image loading from file.
 TEST_CASE("dxt1", "[image]") {
-    auto desc = ImageDesc(PlaneDesc::make(PixelFormat::DXT1_UNORM(), 256, 256, 1), 6, 0);
-    // REQUIRE(desc.plane(0, 0).alignment == 8);
-    REQUIRE(desc.slice(0, 0) == 32768);
-    REQUIRE(desc.slice(0, 1) == 8192);
-    REQUIRE(desc.slice(0, 2) == 2048);
-    REQUIRE(desc.slice(0, 3) == 512);
-    REQUIRE(desc.slice(0, 4) == 128);
-    REQUIRE(desc.slice(0, 5) == 32);
-    REQUIRE(desc.slice(0, 6) == 8);
-    REQUIRE(desc.slice(0, 7) == 8);
-    REQUIRE(desc.slice(0, 8) == 8);
-    REQUIRE(desc.size == 43704 * 6);
-}
-
-TEST_CASE("face-major", "[image]") {
-    // in face major mode, pixels from same face are packed together.
-    auto desc = ImageDesc(PlaneDesc::make(PixelFormat::DXT1_UNORM(), 256, 256, 1), 6, 0, ImageDesc::FACE_MAJOR);
-    // REQUIRE(desc.plane(0, 0).alignment == 8);
+    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), 256, 256, 1), 6, 0);
     REQUIRE(desc.slice(0, 0) == 32768);
     REQUIRE(desc.slice(0, 1) == 8192);
     REQUIRE(desc.slice(0, 2) == 2048);
@@ -42,7 +25,7 @@ TEST_CASE("face-major", "[image]") {
     REQUIRE(desc.slice(0, 8) == 8);
     REQUIRE(desc.size == 43704 * 6);
 
-    // check offsets
+    // check offsets to ensure it is face-major
     REQUIRE(desc.pixel(0, 0) == 0);
     REQUIRE(desc.pixel(0, 1) == desc.pixel(0, 0) + desc.slice(0, 0));
     REQUIRE(desc.pixel(0, 2) == desc.pixel(0, 1) + desc.slice(0, 1));
