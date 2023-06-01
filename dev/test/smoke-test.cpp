@@ -13,7 +13,7 @@ using namespace std::string_literals;
 // ---------------------------------------------------------------------------------------------------------------------
 // quick test of image loading from file.
 TEST_CASE("dxt1", "[image]") {
-    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), 256, 256, 1), 6, 0);
+    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 0);
     REQUIRE(desc.slice(0, 0) == 32768);
     REQUIRE(desc.slice(0, 1) == 8192);
     REQUIRE(desc.slice(0, 2) == 2048);
