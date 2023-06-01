@@ -32,9 +32,9 @@ SOFTWARE.
 #define RAPID_IMAGE_HEADER_REVISION 1
 
 /// \def RAPID_IMAGE_NAMESPACE
-/// Define the namespace of rapid-image library. Default value is rapid_image.
+/// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
 #ifndef RAPID_IMAGE_NAMESPACE
-#define RAPID_IMAGE_NAMESPACE rapid_image
+#define RAPID_IMAGE_NAMESPACE ril
 #endif
 
 /// \def RAPID_IMAGE_ENABLE_DEBUG_BUILD
@@ -941,14 +941,11 @@ struct PlaneDesc {
     /// Bytes from one slice to next. Minimal valid value is pitch * ((height + blockHeight - 1) / blockHeight)
     uint32_t slice = 0;
 
-    /// Bytes of the whole plane. Minimal valid value is (slice * depth)
+    /// Bytes of the whole plane. Minimal valid value is (slice * depth).
     uint32_t size = 0;
 
     /// Bytes between first pixel of the plane to the first pixel of the whole image.
     uint32_t offset = 0;
-
-    // /// Memory alignment requirement of the plane. The value must be power of 2.
-    // uint32_t alignment = 0;
 
     /// Create a new image plane descriptor
     static PlaneDesc make(PixelFormat format, size_t width, size_t height = 1, size_t depth = 1, size_t step = 0, size_t pitch = 0, size_t slice = 0);
@@ -993,6 +990,31 @@ struct PlaneDesc {
     /// check if this is an empty descriptor. Note that empty descriptor is never valid.
     bool empty() const { return PixelFormat::UNKNOWN() == format; }
 
+    /// Save the image plane to .RAW stream.
+    void saveToRAW(std::ostream & stream, const void * pixels) const;
+
+    /// Save the image plane as .RAW file.
+    void saveToRAW(std::string & filename, const void * pixels) const {
+        auto s = openFileStream(filename);
+        return saveToRAW(s, pixels);
+    }
+
+    /// A general save function. Use extension to determine file format.
+    void save(const std::string & filename, const void * pixels) const;
+
+    /// Convert the image plane to float4 format.
+    /// \return Pixel data in float4 format.
+    std::vector<float4> toFloat4(const void * src) const;
+
+    /// Convert image plane to rgba8 format.
+    /// \return Pixel data in rgba8 format.
+    std::vector<RGBA8> toRGBA8(const void * src) const;
+
+    /// Load data to specific slice of image plane from float4 data.
+    void fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void * src) const;
+
+    // Image generateMipmaps(const void * pixels) const;
+
     bool operator==(const PlaneDesc & rhs) const {
         // clang-format off
         return format == rhs.format
@@ -1022,31 +1044,6 @@ struct PlaneDesc {
         return offset < rhs.offset;
         // clang-format on
     }
-
-    /// Save the image plane to .RAW stream.
-    void saveToRAW(std::ostream & stream, const void * pixels) const;
-
-    /// Save the image plane as .RAW file.
-    void saveToRAW(std::string & filename, const void * pixels) const {
-        auto s = openFileStream(filename);
-        return saveToRAW(s, pixels);
-    }
-
-    /// A general save function. Use extension to determine file format.
-    void save(const std::string & filename, const void * pixels) const;
-
-    /// Convert the image plane to float4 format.
-    /// \return Pixel data in float4 format.
-    std::vector<float4> toFloat4(const void * src) const;
-
-    /// Convert image plane to rgba8 format.
-    /// \return Pixel data in rgba8 format.
-    std::vector<RGBA8> toRGBA8(const void * src) const;
-
-    /// Load data to specific slice of image plane from float4 data.
-    void fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void * src) const;
-
-    // Image generateMipmaps(const void * pixels) const;
 
 private:
     static std::ofstream openFileStream(const std::string & filename) {
@@ -1090,6 +1087,24 @@ struct ImageDesc {
     /// Note that this only affects how plane offset are calculated. The 'planes' data member in this structure
     /// is always indexed in mip level major fashion.
     enum ConstructionOrder {
+        /// In this mode, pixels from same face are packed together. For example, given a cubemap with 6 faces
+        /// and 3 mipmap levels, the offsets are calculated in this order:
+        ///
+        ///     face 0, mip 0
+        ///     face 0, mip 1
+        ///     face 0, mip 2
+        ///
+        ///     face 1, mip 0
+        ///     face 1, mip 1
+        ///     face 1, mip 2
+        ///     ...
+        ///     face 5, mip 0
+        ///     face 5, mip 1
+        ///     face 5, mip 2
+        ///
+        /// Note: this is the order used by DDS file.
+        FACE_MAJOR,
+
         /// In this mode, pixels from same mipmap level are packed together. For example, given a cubemap with
         /// 6 faces and 3 mipmap levels, the pixels are packed in memory in this order:
         ///
@@ -1108,33 +1123,7 @@ struct ImageDesc {
         ///     ...
         ///     face 5, mip 2
         MIP_MAJOR,
-
-        /// In this mode, pixels from same face are packed together. For example, given a cubemap with 6 faces
-        /// and 3 mipmap levels, the offsets are calculated in this order:
-        ///
-        ///     face 0, mip 0
-        ///     face 0, mip 1
-        ///     face 0, mip 2
-        ///
-        ///     face 1, mip 0
-        ///     face 1, mip 1
-        ///     face 1, mip 2
-        ///     ...
-        ///     face 5, mip 0
-        ///     face 5, mip 1
-        ///     face 5, mip 2
-        ///
-        /// Note: this is the order used by DDS file.
-        FACE_MAJOR,
     };
-
-    /// Construct image descriptor from base map and layer/level count. If anything goes wrong,
-    /// construct an empty image descriptor.
-    ///
-    /// \param baseMap the base image
-    /// \param layers number of layers. must be positive integer
-    /// \param levels number of mipmap levels. set to 0 to automatically build full mipmap chain.
-    ImageDesc(const PlaneDesc & baseMap, size_t layers = 1, size_t levels = 1, ConstructionOrder order = MIP_MAJOR) { reset(baseMap, layers, levels, order); }
 
     /// Copy constructor
     ImageDesc(const ImageDesc &) = default;
@@ -1181,20 +1170,21 @@ struct ImageDesc {
     }
 
     /// reset the descriptor
-    ImageDesc & reset(const PlaneDesc & baseMap, size_t layers, size_t levels, ConstructionOrder order);
+    ImageDesc & reset(const PlaneDesc & baseMap, size_t layers = 1, size_t levels = 1, ConstructionOrder order = FACE_MAJOR, size_t planeOffsetAlignment = 4);
 
     /// @brief Set to simple 2D Image
     /// @param format   Pixel format
     /// @param width    Width of the image in pixels
     /// @param height   Height of the image in pixels
     /// @param levels   Mipmap count. Set to 0 to automatically generate full mipmap chain.
-    ImageDesc & set2D(PixelFormat format, size_t width, size_t height = 1, size_t levels = 1, ConstructionOrder order = MIP_MAJOR);
+    ImageDesc & set2D(PixelFormat format, size_t width, size_t height = 1, size_t levels = 1, ConstructionOrder order = MIP_MAJOR,
+                      size_t planeOffsetAlignment = 4);
 
     /// @brief Set to simple 2D Image
     /// @param format   Pixel format
     /// @param width    Width and height of the image in pixels
     /// @param levels   Mipmap count. Set to 0 to automatically generate full mipmap chain.
-    ImageDesc & setCube(PixelFormat format, size_t width, size_t levels = 1, ConstructionOrder order = MIP_MAJOR);
+    ImageDesc & setCube(PixelFormat format, size_t width, size_t levels = 1, ConstructionOrder order = MIP_MAJOR, size_t planeOffsetAlignment = 4);
 
     //@}
 

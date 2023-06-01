@@ -641,9 +641,17 @@ bool ImageDesc::valid() const {
     return true;
 }
 
+static inline uint32_t nextMultiple(uint32_t value, uint32_t multiple) {
+    RII_ASSERT(0 == (multiple & (multiple - 1)));
+    return (value + multiple - 1) & ~(multiple - 1);
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 //
-ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t levels_, ConstructionOrder order) {
+ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t levels_, ConstructionOrder order, size_t planeOffsetAlignment) {
+    // make sure the alignment is power of 2
+    RII_REQUIRE(0 == (planeOffsetAlignment & (planeOffsetAlignment - 1)));
+
     // clear old data
     clear();
     RII_ASSERT(valid());
@@ -682,7 +690,7 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t l
             for (size_t i = 0; i < layers_; ++i) {
                 mip.offset          = offset;
                 planes[index(i, m)] = mip;
-                offset += mip.size;
+                offset              = nextMultiple(mip.size + mip.offset, planeOffsetAlignment);
             }
             // next level
             if (mip.width > 1) mip.width >>= 1;
@@ -716,16 +724,16 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t l
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-ImageDesc & ImageDesc::set2D(PixelFormat format, size_t width, size_t height, size_t levels_, ConstructionOrder order) {
+ImageDesc & ImageDesc::set2D(PixelFormat format, size_t width, size_t height, size_t levels_, ConstructionOrder order, size_t planeOffsetAlignment) {
     auto baseMap = PlaneDesc::make(format, width, height);
-    return reset(baseMap, 1, levels_, order);
+    return reset(baseMap, 1, levels_, order, planeOffsetAlignment);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-ImageDesc & ImageDesc::setCube(PixelFormat format, size_t width, size_t levels_, ConstructionOrder order) {
+ImageDesc & ImageDesc::setCube(PixelFormat format, size_t width, size_t levels_, ConstructionOrder order, size_t planeOffsetAlignment) {
     auto baseMap = PlaneDesc::make(format, width, width);
-    return reset(baseMap, 6, levels_, order);
+    return reset(baseMap, 6, levels_, order, planeOffsetAlignment);
 }
 
 // *********************************************************************************************************************
