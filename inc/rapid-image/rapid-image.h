@@ -194,13 +194,13 @@ __attribute__((format(printf, 1, 2)))
 inline std::string
 format(const char * format, ...) {
     va_list args;
-    va_start(args, format);
 
     // Get the size of the buffer needed to store the formatted string.
+    va_start(args, format);
     int size = vsnprintf(nullptr, 0, format, args);
+    va_end(args);
     if (size == -1) {
         // Error getting the size of the buffer.
-        va_end(args);
         return {};
     }
 
@@ -208,9 +208,8 @@ format(const char * format, ...) {
     std::string buffer((size_t) (size + 1), '\0');
 
     // Format the string.
+    va_start(args, format);
     vsnprintf(&buffer[0], (size_t) (size + 1), format, args);
-
-    // Free the argument list.
     va_end(args);
 
     // Return the formatted string.
