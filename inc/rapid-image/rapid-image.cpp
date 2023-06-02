@@ -15,9 +15,11 @@ namespace RAPID_IMAGE_NAMESPACE {
 constexpr PixelFormat::LayoutDesc PixelFormat::LAYOUTS[];
 #endif
 
-// ---------------------------------------------------------------------------------------------------------------------
-//
-static void * aalloc(size_t a, size_t s) {
+// *********************************************************************************************************************
+// Utilty functions
+// *********************************************************************************************************************
+
+void * aalloc(size_t a, size_t s) {
 #if _WIN32
     return _aligned_malloc(s, a);
 #else
@@ -25,9 +27,7 @@ static void * aalloc(size_t a, size_t s) {
 #endif
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-//
-static void afree(void * p) {
+void afree(void * p) {
 #if _WIN32
     _aligned_free(p);
 #else
@@ -413,16 +413,6 @@ float PixelFormat::getPixelChannelFloat(const void * pixel, size_t channel) {
     return tofloat(src.segment(channelDesc.shift, channelDesc.bits), channelDesc.bits, sign);
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-//
-void PlaneDesc::saveToRAW(std::ostream & stream, const void * pixels) const {
-    constexpr size_t PLANE_SIZE = sizeof(*this);
-    static_assert(PLANE_SIZE <= 256, "we currently only reserved 256 bytes for plane descriptor.");
-    stream.write((const char *) this, PLANE_SIZE);
-    for (size_t i = 0; i < 256 - PLANE_SIZE; ++i) stream << ' '; // fill the header up to 256 bytes.
-    stream.write((const char *) pixels, this->size);
-}
-
 // // ---------------------------------------------------------------------------------------------------------------------
 // //
 // void PlaneDesc::save(const std::string & filename, const void * pixels) const {
@@ -628,6 +618,51 @@ Image PlaneDesc::generateMipmaps(const void * pixels, size_t maxLevels) const {
 // ImageDesc
 // *********************************************************************************************************************
 
+static inline bool isPowerOf2(uint32_t value) { return 0 == (value & (value - 1)); }
+
+static inline uint32_t nextMultiple(uint32_t value, uint32_t multiple) {
+    RII_ASSERT(isPowerOf2(multiple));
+    return (value + multiple - 1) & ~(multiple - 1);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
+ImageDesc::ImageDesc(ImageDesc && rhs) {
+    planes    = std::move(rhs.planes);
+    layers    = rhs.layers;
+    levels    = rhs.levels;
+    size      = rhs.size;
+    alignment = rhs.alignment;
+    rhs.clear();
+    RII_ASSERT(rhs.empty());
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
+ImageDesc & ImageDesc::operator=(ImageDesc && rhs) {
+    if (this != &rhs) {
+        planes    = std::move(rhs.planes);
+        layers    = rhs.layers;
+        levels    = rhs.levels;
+        size      = rhs.size;
+        alignment = rhs.alignment;
+        rhs.clear();
+        RII_ASSERT(rhs.empty());
+    }
+    return *this;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
+ImageDesc & ImageDesc::clear() {
+    planes.clear();
+    layers    = 0;
+    levels    = 0;
+    size      = 0;
+    alignment = DEFAULT_ALIGNMENT;
+    return *this;
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 //
 bool ImageDesc::valid() const {
@@ -641,13 +676,24 @@ bool ImageDesc::valid() const {
         }
     }
 
+    // alignment should be positive and should be power of 2.
+    if (0 == alignment) {
+        RAPID_IMAGE_LOGE("pixel data alignment must be positive.");
+        return false;
+    }
+    if (!isPowerOf2(alignment)) {
+        RAPID_IMAGE_LOGE("pixel data alignment must be power of 2.");
+        return false;
+    }
+
+    // make sure plane size is correct.
     if (layers * levels != planes.size()) {
         RAPID_IMAGE_LOGE("image plane array size must be equal to (layers * levels)");
         return false;
     }
 
     // check mipmaps
-    for (uint32_t f = 0; f < layers; ++f)
+    for (uint32_t f = 0; f < layers; ++f) {
         for (uint32_t l = 0; l < levels; ++l) {
             auto & m = plane(f, l);
             if (!m.valid()) {
@@ -659,21 +705,17 @@ bool ImageDesc::valid() const {
                 return false;
             }
         }
+    }
 
     // success
     return true;
-}
-
-static inline uint32_t nextMultiple(uint32_t value, uint32_t multiple) {
-    RII_ASSERT(0 == (multiple & (multiple - 1)));
-    return (value + multiple - 1) & ~(multiple - 1);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
 ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t levels_, ConstructionOrder order, size_t planeOffsetAlignment) {
     // make sure the alignment is power of 2
-    RII_REQUIRE(0 == (planeOffsetAlignment & (planeOffsetAlignment - 1)));
+    RII_REQUIRE(planeOffsetAlignment > 0 && isPowerOf2((uint32_t) planeOffsetAlignment));
 
     // clear old data
     clear();
@@ -713,7 +755,8 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t l
             for (size_t i = 0; i < layers_; ++i) {
                 mip.offset          = offset;
                 planes[index(i, m)] = mip;
-                offset              = nextMultiple(mip.size + mip.offset, planeOffsetAlignment);
+                offset              = nextMultiple(mip.size + mip.offset, (uint32_t) planeOffsetAlignment);
+                RII_ASSERT(0 == (offset % planeOffsetAlignment));
             }
             // next level
             if (mip.extent.w > 1) mip.extent.w >>= 1;
@@ -728,7 +771,7 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t l
             for (size_t m = 0; m < levels_; ++m) {
                 mip.offset          = offset;
                 planes[index(f, m)] = mip;
-                offset += mip.size;
+                offset              = nextMultiple(offset + mip.size, (uint32_t) planeOffsetAlignment);
                 // next level
                 if (mip.extent.w > 1) mip.extent.w >>= 1;
                 if (mip.extent.h > 1) mip.extent.h >>= 1;
@@ -738,7 +781,8 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t layers_, size_t l
         }
     }
 
-    size = offset;
+    size      = offset;
+    alignment = (uint32_t) planeOffsetAlignment;
 
     // done
     RII_ASSERT(valid());
@@ -757,6 +801,253 @@ ImageDesc & ImageDesc::set2D(PixelFormat format, size_t width, size_t height, si
 ImageDesc & ImageDesc::setCube(PixelFormat format, size_t width, size_t levels_, ConstructionOrder order, size_t planeOffsetAlignment) {
     auto baseMap = PlaneDesc::make(format, {(uint32_t) width, (uint32_t) width, 1});
     return reset(baseMap, 6, levels_, order, planeOffsetAlignment);
+}
+
+#pragma pack(push, 4)
+struct RILFileTag {
+    const char tag[4] = {'R', 'I', 'L', '_'};
+    uint32_t   version;
+    explicit RILFileTag(uint32_t version_ = 0): version(version_) {}
+
+    bool valid() const { return tag[0] == 'R' && tag[1] == 'I' && tag[2] == 'L' && tag[3] == '_' && version > 0; }
+};
+
+struct RILHeaderV1 {
+    /// this is to ensure that we don't change the layout of PlaneDesc accidentally w/o changing the file version number.
+    const uint32_t headerSize    = sizeof(RILHeaderV1);
+    const uint32_t planeDescSize = sizeof(PlaneDesc);
+    const uint32_t offset        = sizeof(RILFileTag) + sizeof(RILHeaderV1); ///< offset to the plane array
+    uint32_t       layers        = 0;
+    uint32_t       levels        = 0;
+    uint32_t       alignment     = 0;
+    uint64_t       size          = 0; ///< total size of the pixel array.
+
+    bool valid() const {
+        return headerSize == sizeof(RILHeaderV1) && planeDescSize == sizeof(PlaneDesc) && offset == (sizeof(RILFileTag) + sizeof(RILHeaderV1));
+    }
+
+    bool empty() const { return 0 == size || 0 == layers || 0 == levels; }
+};
+#pragma pack(pop)
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
+ImageDesc::AlignedUniquePtr ImageDesc::load(std::istream & stream) {
+    if (!stream) {
+        RAPID_IMAGE_LOGE("failed to write image to stream: stream is not good.");
+        return {};
+    }
+
+    auto checkedRead = [&](const char * action, void * buffer, size_t size) {
+        stream.read((char *) buffer, size);
+        if (!stream) {
+            RAPID_IMAGE_LOGE("failed to %s: stream is not in good state.", action);
+            return false;
+        }
+        return true;
+    };
+
+    // store current stream position
+    auto begin = stream.tellg();
+
+    // check if the file is RIL or not.
+    RILFileTag tag;
+    if (checkedRead("read RIL image tag", &tag, sizeof(tag)) && tag.valid()) {
+        stream.seekg(begin, std::ios::beg);
+        return loadFromRIL(stream);
+    }
+
+    // // try read as ASTC
+    // ASTCReader astc(fp);
+    // if (!astc.empty()) { return astc.getRawImage(); }
+
+    // fp.seekg(begin, std::ios::beg);
+
+    // // setup stbi io callback
+    // stbi_io_callbacks io = {};
+    // io.read              = [](void * user, char * data, int size) -> int {
+    //     auto fp = (std::istream *) user;
+    //     fp->read(data, size);
+    //     return (int) fp->gcount();
+    // };
+    // io.skip = [](void * user, int n) {
+    //     auto fp = (std::istream *) user;
+    //     fp->seekg(n, std::ios::cur);
+    // };
+    // io.eof = [](void * user) -> int {
+    //     auto fp = (std::istream *) user;
+    //     return fp->eof();
+    // };
+
+    // // try read as DDS
+    // DDSReader dds(fp);
+    // if (dds.checkFormat()) {
+    //     auto image = Image(dds.readHeader());
+    //     if (!image.empty() && dds.readPixels(image.data(), image.size())) { return image; }
+    // }
+
+    // // try read as KTX2
+    // KTX2Reader ktx2(fp);
+    // auto       image = ktx2.readFile();
+    // if (!image.empty() && image.data()) { return image; }
+
+    // // Load from common image file via stb_image library
+    // // TODO: hdr/grayscale support
+    // int x, y, n;
+    // fp.seekg(begin, std::ios::beg);
+    // auto data = stbi_load_from_callbacks(&io, &fp, &x, &y, &n, 4);
+    // if (data) {
+    //     auto image = Image(ImageDesc(PlaneDesc::make(PixelFormat::RGBA_8_8_8_8_UNORM(), (uint32_t) x, (uint32_t) y)), data);
+    //     RII_ASSERT(image.desc().valid());
+    //     stbi_image_free(data);
+    //     return image;
+    // }
+
+    RAPID_IMAGE_LOGE("failed to read image from stream: unsupported/unrecognized file format.");
+    return {};
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
+ImageDesc::AlignedUniquePtr ImageDesc::load(const void * data_, size_t size_) {
+    if (!data_ || !size_) {
+        RAPID_IMAGE_LOGW("load image from null or zero size data returns empty image.");
+        return {};
+    }
+    auto str = std::string((const char *) data_, size_);
+    auto iss = std::istringstream(str);
+    return load(iss);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
+ImageDesc::AlignedUniquePtr ImageDesc::loadFromRIL(std::istream & stream) {
+    if (!stream) {
+        RAPID_IMAGE_LOGE("failed to write image to stream: stream is in good state.");
+        return {};
+    }
+
+    auto checkedRead = [&](const char * action, void * buffer, size_t size) {
+        stream.read((char *) buffer, size);
+        if (!stream) {
+            RAPID_IMAGE_LOGE("failed to %s: stream is not in good state.", action);
+            return false;
+        }
+        return true;
+    };
+
+    // read file tag
+    RILFileTag tag;
+    if (!checkedRead("read image tag", &tag, sizeof(tag))) return {};
+    if (!tag.valid()) {
+        RAPID_IMAGE_LOGE("failed to read image from stream: Invalid file tag. The stream is probably not a RIL file.");
+        return {};
+    }
+
+    // check file version
+    if (1 == tag.version) {
+        // read V1 file
+        RILHeaderV1 header;
+        if (!checkedRead("read V1 header", &header, sizeof(header))) return {};
+        if (!header.valid()) {
+            RAPID_IMAGE_LOGE("failed to read image from stream: Invalid file header.");
+            return {};
+        }
+        if (header.empty()) {
+            RAPID_IMAGE_LOGE("failed to read image from stream: empty image.");
+            return {};
+        }
+        // read image descriptor
+        ImageDesc desc;
+        desc.layers    = header.layers;
+        desc.levels    = header.levels;
+        desc.size      = header.size;
+        desc.alignment = header.alignment;
+        desc.planes    = std::vector<PlaneDesc>(header.layers * header.levels);
+        if (!checkedRead("read image planes", desc.planes.data(), desc.planes.size() * sizeof(PlaneDesc))) return {};
+        if (!desc.valid()) {
+            RAPID_IMAGE_LOGE("failed to read image from stream: Invalid image descriptor.");
+            return {};
+        }
+        // read pixel array
+        auto pixels = AlignedUniquePtr((uint8_t *) aalloc(header.alignment, desc.size));
+        if (!checkedRead("read pixels", pixels.get(), desc.size)) return {};
+        // done
+        *this = std::move(desc);
+        return pixels;
+    } else {
+        RAPID_IMAGE_LOGE("failed to read image from stream: unsupported file version %u.", tag.version);
+        return {};
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
+void ImageDesc::saveToRIL(std::ostream & stream, const void * pixels) const {
+    if (!stream) {
+        RAPID_IMAGE_LOGE("failed to write image to stream: stream is not good.");
+        return;
+    }
+    if (!pixels) {
+        RAPID_IMAGE_LOGE("failed to write image to stream: pixel array is null.");
+        return;
+    }
+
+    auto planeArraySize = planes.size() * sizeof(PlaneDesc);
+
+    // write file tag
+    RILFileTag tag(1);
+    stream.write((const char *) &tag, sizeof(tag));
+
+    // write file header
+    RILHeaderV1 header;
+    header.size      = size;
+    header.layers    = layers;
+    header.levels    = levels;
+    header.alignment = alignment;
+    stream.write((const char *) &header, sizeof(header));
+
+    // write plane array
+    stream.write((const char *) planes.data(), planeArraySize);
+
+    // write pixel array
+    stream.write((const char *) pixels, size);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
+void ImageDesc::saveToDDS(std::ostream &, const void *) const {
+    //
+    RII_REQUIRE(false, "not implemented yet.");
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
+void ImageDesc::save(const std::string & filename, const void * pixels) const {
+    // lambda to open file stream
+    auto openFileStream = [](const std::string & filename) -> std::ofstream {
+        std::ofstream file(filename, std::ios::binary);
+        if (!file) {
+            RAPID_IMAGE_LOGE("failed to open file %s for writing.", filename.c_str());
+            return {};
+        }
+        return file;
+    };
+
+    // determine file format from file extension
+    auto ext = std::filesystem::path(filename).extension().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) { return (char) tolower(c); });
+    if (".ril" == ext) {
+        auto file = openFileStream(filename);
+        if (!file) return;
+        saveToRIL(file, pixels);
+    } else if (".dds" == ext) {
+        auto file = openFileStream(filename);
+        if (!file) return;
+        saveToDDS(file, pixels);
+    } else {
+        RAPID_IMAGE_LOGE("Unsupported file extension: %s", ext.c_str());
+    }
 }
 
 // *********************************************************************************************************************
@@ -804,7 +1095,7 @@ void Image::construct(const void * initialContent, size_t initialContentSizeInby
 
     // (re)allocate pixel buffer
     size_t imageSize = size();
-    _proxy.data      = (uint8_t *) aalloc(4, imageSize); // TODO: larger alignment for larger pixel?
+    _proxy.data      = (uint8_t *) aalloc(_proxy.desc.alignment, imageSize);
     if (!_proxy.data) {
         RAPID_IMAGE_LOGE("failed to construct image: out of memory.");
         return;
@@ -821,79 +1112,35 @@ void Image::construct(const void * initialContent, size_t initialContentSizeInby
     }
 }
 
-// // ---------------------------------------------------------------------------------------------------------------------
-// //
-// Image Image::load(std::istream & fp) {
-//     // store current stream position
-//     auto begin = fp.tellg();
+// ---------------------------------------------------------------------------------------------------------------------
+//
+Image Image::load(std::istream & fp) {
+    Image r;
+    auto  pixels = r._proxy.desc.load(fp);
+    if (!pixels) return {};
+    r._proxy.data = pixels.release();
+    return r;
+}
 
-//     // try read as ASTC
-//     ASTCReader astc(fp);
-//     if (!astc.empty()) { return astc.getRawImage(); }
+// ---------------------------------------------------------------------------------------------------------------------
+//
+Image Image::load(const void * data, size_t size) {
+    Image r;
+    auto  pixels = r._proxy.desc.load(data, size);
+    if (!pixels) return {};
+    r._proxy.data = pixels.release();
+    return r;
+}
 
-//     fp.seekg(begin, std::ios::beg);
-
-//     // setup stbi io callback
-//     stbi_io_callbacks io = {};
-//     io.read              = [](void * user, char * data, int size) -> int {
-//         auto fp = (std::istream *) user;
-//         fp->read(data, size);
-//         return (int) fp->gcount();
-//     };
-//     io.skip = [](void * user, int n) {
-//         auto fp = (std::istream *) user;
-//         fp->seekg(n, std::ios::cur);
-//     };
-//     io.eof = [](void * user) -> int {
-//         auto fp = (std::istream *) user;
-//         return fp->eof();
-//     };
-
-//     // try read as DDS
-//     DDSReader dds(fp);
-//     if (dds.checkFormat()) {
-//         auto image = Image(dds.readHeader());
-//         if (!image.empty() && dds.readPixels(image.data(), image.size())) { return image; }
-//     }
-
-//     // try read as KTX2
-//     KTX2Reader ktx2(fp);
-//     auto       image = ktx2.readFile();
-//     if (!image.empty() && image.data()) { return image; }
-
-//     // Load from common image file via stb_image library
-//     // TODO: hdr/grayscale support
-//     int x, y, n;
-//     fp.seekg(begin, std::ios::beg);
-//     auto data = stbi_load_from_callbacks(&io, &fp, &x, &y, &n, 4);
-//     if (data) {
-//         auto image = Image(ImageDesc(PlaneDesc::make(PixelFormat::RGBA_8_8_8_8_UNORM(), (uint32_t) x, (uint32_t) y)), data);
-//         RII_ASSERT(image.desc().valid());
-//         stbi_image_free(data);
-//         return image;
-//     }
-
-//     // RAPID_IMAGE_LOGE("Failed to load image from stream: unrecognized file format.");
-//     return {};
-// }
-
-// // ---------------------------------------------------------------------------------------------------------------------
-// //
-// Image Image::load(const void * data, size_t size) {
-//     auto str = std::string((const char *) data, size);
-//     auto iss = std::istringstream(str);
-//     return load(iss);
-// }
-
-// // ---------------------------------------------------------------------------------------------------------------------
-// //
-// Image Image::load(const std::string & filename) {
-//     std::ifstream f(filename, std::ios::binary);
-//     if (!f.good()) {
-//         RAPID_IMAGE_LOGE("Failed to open image file %s : errno=%d", filename.c_str(), errno);
-//         return {};
-//     }
-//     return load(f);
-// }
+// ---------------------------------------------------------------------------------------------------------------------
+//
+Image Image::load(const std::string & filename) {
+    std::ifstream f(filename, std::ios::binary);
+    if (!f) {
+        RAPID_IMAGE_LOGE("Failed to open image file %s : errno=%d", filename.c_str(), errno);
+        return {};
+    }
+    return load(f);
+}
 
 } // namespace RAPID_IMAGE_NAMESPACE
