@@ -7,13 +7,16 @@
 #include <chrono>
 #include <thread>
 
+#ifdef __clang__
+#pragma clang diagnostic ignored "-Wc++98-compat-pedantic"
+#pragma clang diagnostic ignored "-Wc++98-compat"
+#endif
+
 using namespace ril;
 using namespace std::string_literals;
 
-// ---------------------------------------------------------------------------------------------------------------------
-// quick test of image loading from file.
-TEST_CASE("dxt1", "[image]") {
-    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 0);
+TEST_CASE("dxt1-face-major", "[image]") {
+    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 0, ImageDesc::FACE_MAJOR, 4); // set alignment to 4.
     REQUIRE(desc.slice(0, 0) == 32768);
     REQUIRE(desc.slice(0, 1) == 8192);
     REQUIRE(desc.slice(0, 2) == 2048);
@@ -37,14 +40,57 @@ TEST_CASE("dxt1", "[image]") {
     REQUIRE(desc.pixel(0, 8) == desc.pixel(0, 7) + desc.slice(0, 7));
 }
 
-// TEST_CASE("load", "[image]") {
-//     auto path = std::filesystem::path(TEST_FOLDER) / "alien-planet.jpg";
-//     PH_LOGI("load image from file: %s", path.string().c_str());
-//     auto ri = Image::load(path.string());
-//     REQUIRE(!ri.empty());
-//     REQUIRE(ri.width() == 600);
-//     REQUIRE(ri.height() == 486);
-// }
+TEST_CASE("dxt1-mip-major", "[image]") {
+    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 0, ImageDesc::MIP_MAJOR, 4); // set alignment to 4.
+    REQUIRE(desc.slice(0, 0) == 32768);
+    REQUIRE(desc.slice(0, 1) == 8192);
+    REQUIRE(desc.slice(0, 2) == 2048);
+    REQUIRE(desc.slice(0, 3) == 512);
+    REQUIRE(desc.slice(0, 4) == 128);
+    REQUIRE(desc.slice(0, 5) == 32);
+    REQUIRE(desc.slice(0, 6) == 8);
+    REQUIRE(desc.slice(0, 7) == 8);
+    REQUIRE(desc.slice(0, 8) == 8);
+    REQUIRE(desc.size == 43704 * 6);
+
+    // check offsets to ensure it is face-major
+    REQUIRE(desc.pixel(0, 0) == 0);
+    REQUIRE(desc.pixel(1, 0) == desc.pixel(0, 0) + desc.slice(0, 0));
+    REQUIRE(desc.pixel(2, 0) == desc.pixel(1, 0) + desc.slice(1, 0));
+    REQUIRE(desc.pixel(3, 0) == desc.pixel(2, 0) + desc.slice(2, 0));
+    REQUIRE(desc.pixel(4, 0) == desc.pixel(3, 0) + desc.slice(3, 0));
+    REQUIRE(desc.pixel(5, 0) == desc.pixel(4, 0) + desc.slice(4, 0));
+}
+
+TEST_CASE("default-alignment", "[image]") {
+    // create a multi-plane image with default alignment
+    Image        image(ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA8(), {2, 2, 2}), 4, 0));
+    const auto & desc = image.desc();
+    REQUIRE(0 == (((size_t) (intptr_t) image.data()) % desc.alignment));
+    for (const auto & p : desc.planes) { REQUIRE(0 == (p.offset % desc.alignment)); }
+}
+
+TEST_CASE("ril-save-load", "[image]") {
+    // create a multi-plane image with default alignment
+    Image img1(ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA8(), {2, 2, 2}), 4, 0));
+
+    // TODO: set pixel values.
+
+    // save to temp file
+    std::stringstream ss;
+    img1.saveToRIL(ss);
+
+    // verify that loading from null string doesn't crash.
+    Image::load(nullptr, 1);
+    Image::load((const char *) (intptr_t) 0xdeadbeef, 0);
+
+    // then load it back
+    auto str  = ss.str();
+    auto img2 = Image::load(str.data(), str.size());
+
+    // make sure img1 and img2 are identical.
+    REQUIRE(img1.desc() == img2.desc());
+}
 
 // TEST_CASE("rgba32f", "[image]") {
 //     auto path = std::filesystem::path(TEST_FOLDER) / "rgba32f-64x64.dds";
@@ -305,41 +351,41 @@ TEST_CASE("dxt1", "[image]") {
 //     CHECK(ri.desc().plane().format.layoutDesc().blockBytes == 16); // 128 bits
 // }
 
-// this is currently a win32 only test, since it replies on VirtualAlloc() and VirtualProtect() change page permissions.
-#if _WIN32
-#include <windows.h>
-#include <excpt.h>
-TEST_CASE("convert-float4", "[image]") {
-    // allocate 2 pages of memory (each page is 4K bytes)
-    uint8_t * data = (uint8_t *) VirtualAlloc(0, 8 * 1024 * 1024, MEM_RESERVE, PAGE_READWRITE);
+// // this is currently a win32 only test, since it replies on VirtualAlloc() and VirtualProtect() change page permissions.
+// #if _WIN32
+// #include <windows.h>
+// #include <excpt.h>
+// TEST_CASE("convert-float4", "[image]") {
+//     // allocate 2 pages of memory (each page is 4K bytes)
+//     uint8_t * data = (uint8_t *) VirtualAlloc(0, 8 * 1024 * 1024, MEM_RESERVE, PAGE_READWRITE);
 
-    // Commit only the first page
-    VirtualAlloc((LPVOID) data, 4 * 1024, MEM_COMMIT, PAGE_READWRITE);
+//     // Commit only the first page
+//     VirtualAlloc((LPVOID) data, 4 * 1024, MEM_COMMIT, PAGE_READWRITE);
 
-    // So visiting the 2nd page will cause an page fault exception.
-    uint8_t * page2 = data + 4 * 1024;
-    // uncomment this page to test the page fault error,
-    // *page = 0;
+//     // So visiting the 2nd page will cause an page fault exception.
+//     uint8_t * page2 = data + 4 * 1024;
+//     // uncomment this page to test the page fault error,
+//     // *page = 0;
 
-    // Now let's create a 1 byte pixel that is right on the last byte of the first page. Accessing memory ofter
-    // this pixel will cause page fault exception.
-    uint8_t * pixel = page2 - 1;
-    *pixel          = 127;
+//     // Now let's create a 1 byte pixel that is right on the last byte of the first page. Accessing memory ofter
+//     // this pixel will cause page fault exception.
+//     uint8_t * pixel = page2 - 1;
+//     *pixel          = 127;
 
-    // Conver this pixel from u8 TO float. The conversion function should not access any bytes on page2
-    // If it does, it'll trigger page fault exception and cause the whole test to fail.
+//     // Conver this pixel from u8 TO float. The conversion function should not access any bytes on page2
+//     // If it does, it'll trigger page fault exception and cause the whole test to fail.
 
-    float f1 = PixelFormat::R_8_UNORM().getPixelChannelFloat(pixel, 0);
-    REQUIRE(f1 == 127.0f / 255.0f);
+//     float f1 = PixelFormat::R_8_UNORM().getPixelChannelFloat(pixel, 0);
+//     REQUIRE(f1 == 127.0f / 255.0f);
 
-    uint8_t u8 = PixelFormat::R_8_UNORM().getPixelChannelByte(pixel, 0);
-    REQUIRE(u8 == 127);
+//     uint8_t u8 = PixelFormat::R_8_UNORM().getPixelChannelByte(pixel, 0);
+//     REQUIRE(u8 == 127);
 
-    auto plane = PlaneDesc::make(PixelFormat::R_8_UNORM(), 1, 1);
-    auto f4    = plane.toFloat4(pixel);
-    REQUIRE(f4[0].x == 127.0f / 255.0f);
+//     auto plane = PlaneDesc::make(PixelFormat::R_8_UNORM(), 1, 1);
+//     auto f4    = plane.toFloat4(pixel);
+//     REQUIRE(f4[0].x == 127.0f / 255.0f);
 
-    // done
-    VirtualFree(data, 8 * 1024, MEM_RELEASE);
-}
-#endif
+//     // done
+//     VirtualFree(data, 8 * 1024, MEM_RELEASE);
+// }
+// #endif

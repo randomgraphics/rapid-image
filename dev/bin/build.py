@@ -77,7 +77,7 @@ def cmake_config(args, build_dir, build_type):
             -DCMAKE_ANDROID_ARCH_ABI={android_abi} \
             "
     elif 'nt' != os.name:
-        config += " -DCMAKE_C_COMPILER=clang-14 -DCMAKE_CXX_COMPILER=clang++-14"
+        if args.use_clang: config += " -DCMAKE_C_COMPILER=clang-14 -DCMAKE_CXX_COMPILER=clang++-14"
         if not args.use_makefile: config += " -GNinja"
     cmake(build_dir, config)
 
@@ -89,6 +89,7 @@ def cmake_config(args, build_dir, build_type):
 ap = argparse.ArgumentParser()
 ap.add_argument("-a", dest="android_build", action="store_true", help="Build for Android")
 ap.add_argument("-b", dest="build_dir", default="build", help="Build output folder.")
+ap.add_argument("--clang", dest="use_clang", action="store_true", help="Use clang as compiler. Default is gcc/g++. This option is only valid on Linux.")
 ap.add_argument("-c", dest="config_only", action="store_true", help="Run CMake config only. Skip cmake build.")
 ap.add_argument("-C", dest="skip_config", action="store_true", help="Skip CMake config. Run build process only.")
 ap.add_argument("-m", dest="use_makefile", action="store_true", help="Use OS's default makefile instead of Ninja")
@@ -105,7 +106,7 @@ sdk_root_dir = utils.get_root_folder()
 android_abi = "arm64-v8a" if args.android_build else None
 
 # get cmake build variant and build folder
-build_type, build_dir = utils.get_cmake_build_type(args.variant, args.build_dir, android_abi)
+build_type, build_dir = utils.get_cmake_build_type(args.variant, args.build_dir, android_abi, args.use_clang)
 
 if build_type is None:
     if os.name == "nt":

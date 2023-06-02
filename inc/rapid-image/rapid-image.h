@@ -22,6 +22,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wc++98-compat-pedantic"
+#pragma clang diagnostic ignored "-Wc++98-compat"
+#pragma clang diagnostic ignored "-Wold-style-cast"
+#pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
+#endif
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4201) // nonstandard extension used: nameless struct/union
+#endif
+
 #ifndef RAPID_IMAGE_H_
 #define RAPID_IMAGE_H_
 
@@ -55,7 +67,7 @@ SOFTWARE.
 /// quickly identify the source of the error. The default implementation does
 /// nothing but return empty string.
 #ifndef RAPID_IMAGE_BACKTRACE
-#define RAPID_IMAGE_BACKTRACE() std::string("You have to define RAPID_IMAGE_BACKTRACE to retrieve current callstack.")
+#define RAPID_IMAGE_BACKTRACE() std::string("You have to define RAPID_IMAGE_BACKTRACE to retrieve current call stack.")
 #endif
 
 /// \def RAPID_IMAGE_LOGE
@@ -90,16 +102,16 @@ SOFTWARE.
     } while (false)
 #endif
 
-/// \def RII_ASSERT
+/// \def RAPID_IMAGE_ASSERT
 /// The runtime assert macro for debug build only. This macro has no effect when
 /// RAPID_IMAGE_ENABLE_DEBUG_BUILD is 0.
 #ifndef RAPID_IMAGE_ASSERT
-#define RAPID_IMAGE_ASSERT(expression, ...)                                                \
-    if (!(expression)) {                                                                   \
-        auto errorMessage__ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);                  \
-        RAPID_IMAGE_LOGE("Condition %s not met. %s", #expression, errorMessage__.c_str()); \
-        assert(false);                                                                     \
-    } else                                                                                 \
+#define RAPID_IMAGE_ASSERT(expression, ...)                                               \
+    if (!(expression)) {                                                                  \
+        auto errorMessage_ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);                  \
+        RAPID_IMAGE_LOGE("Condition %s not met. %s", #expression, errorMessage_.c_str()); \
+        assert(false);                                                                    \
+    } else                                                                                \
         void(0)
 #endif
 
@@ -109,12 +121,14 @@ SOFTWARE.
 #include <cassert>
 #include <cstdint>
 #include <cmath>
+#include <cstdarg>
 #include <string>
 #include <vector>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <exception>
+#include <memory>
 
 // ---------------------------------------------------------------------------------------------------------------------
 // internal macros
@@ -183,7 +197,7 @@ format(const char * format, ...) {
     va_start(args, format);
 
     // Get the size of the buffer needed to store the formatted string.
-    int size = vsnprintf(NULL, 0, format, args);
+    int size = vsnprintf(nullptr, 0, format, args);
     if (size == -1) {
         // Error getting the size of the buffer.
         va_end(args);
@@ -191,10 +205,10 @@ format(const char * format, ...) {
     }
 
     // Allocate the buffer.
-    std::string buffer(size + 1, '\0');
+    std::string buffer((size_t) (size + 1), '\0');
 
     // Format the string.
-    vsnprintf(&buffer[0], size + 1, format, args);
+    vsnprintf(&buffer[0], (size_t) (size + 1), format, args);
 
     // Free the argument list.
     va_end(args);
@@ -205,6 +219,15 @@ format(const char * format, ...) {
 
 /// Overload of format() method for empty parameter list.
 inline std::string format() { return ""s; }
+
+// ---------------------------------------------------------------------------------------------------------------------
+/// \brief Allocate aligned memory. The memory must be freed with afree(). Calling free() on the returned pointer
+/// will cause undefined behavior.
+void * aalloc(size_t a, size_t s);
+
+// ---------------------------------------------------------------------------------------------------------------------
+// \brief Free memory allocated by aalloc().
+void afree(void * p);
 
 // ---------------------------------------------------------------------------------------------------------------------
 
@@ -936,12 +959,12 @@ constexpr auto getBitsCount(T data, size_t startBit = 0) -> typename std::enable
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wbitfield-constant-conversion"
-#pragma clang diagnostic ignored "-Wmissing-field-initializers"
 #pragma clang diagnostic ignored "-Wmissing-braces"
 #endif
 #ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Woverflow"
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #endif
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -1077,7 +1100,7 @@ struct PlaneDesc {
     }
 
     PlaneDesc & setExtent(size_t width_, size_t height_ = 1, size_t depth_ = 1) {
-        extent.set(width_, height_, depth_);
+        extent.set((uint32_t) width_, (uint32_t) height_, (uint32_t) depth_);
         return *this;
     }
 
@@ -1108,18 +1131,6 @@ struct PlaneDesc {
 
     /// check if this is an empty descriptor. Note that empty descriptor is never valid.
     bool empty() const { return PixelFormat::UNKNOWN() == format; }
-
-    /// Save the image plane to .RAW stream.
-    void saveToRAW(std::ostream & stream, const void * pixels) const;
-
-    /// Save the image plane as .RAW file.
-    void saveToRAW(std::string & filename, const void * pixels) const {
-        auto s = openFileStream(filename);
-        return saveToRAW(s, pixels);
-    }
-
-    /// A general save function. Use extension to determine file format.
-    void save(const std::string & filename, const void * pixels) const;
 
     /// Convert the image plane to float4 format.
     /// \return Pixel data in float4 format.
@@ -1162,22 +1173,15 @@ struct PlaneDesc {
         return offset < rhs.offset;
         // clang-format on
     }
-
-private:
-    static std::ofstream openFileStream(const std::string & filename) {
-        std::ofstream file(filename, std::ios::binary);
-        if (!file) {
-            RAPID_IMAGE_LOGE("failed to open file %s for writing.", filename.c_str());
-            return {};
-        }
-        return file;
-    }
 };
 
 ///
 /// Represent a complex image with optional mipmap chain
 ///
 struct ImageDesc {
+    /// Default alignment requirement for each plane. We set it to 16 bytes to be compatible with SSE instructions.
+    inline static constexpr uint32_t DEFAULT_ALIGNMENT = 16;
+
     // ****************************
     /// \name member data
     // ****************************
@@ -1191,9 +1195,10 @@ struct ImageDesc {
     ///  - level = index / layers
     ///  - layer = index % layers
     std::vector<PlaneDesc> planes;
-    uint32_t               layers = 0; ///< number of layers
-    uint32_t               levels = 0; ///< number of mipmap levels
-    uint32_t               size   = 0; ///< total size in bytes of the whole image.
+    uint32_t               layers    = 0;                 ///< number of layers
+    uint32_t               levels    = 0;                 ///< number of mipmap levels
+    uint64_t               size      = 0;                 ///< total size in bytes of the whole image.
+    uint32_t               alignment = DEFAULT_ALIGNMENT; ///< memory alignment requirement for each plane. Default is 4 bytes.
 
     //@}
 
@@ -1255,45 +1260,22 @@ struct ImageDesc {
     ImageDesc & operator=(const ImageDesc &) = default;
 
     /// move constructor
-    ImageDesc(ImageDesc && rhs) {
-        planes = std::move(rhs.planes);
-        RII_ASSERT(rhs.planes.empty());
-        layers     = rhs.layers;
-        rhs.layers = 0;
-        levels     = rhs.levels;
-        rhs.levels = 0;
-        size       = rhs.size;
-        rhs.size   = 0;
-        RII_ASSERT(rhs.empty());
-    }
+    ImageDesc(ImageDesc &&);
 
     /// move operator
-    ImageDesc & operator=(ImageDesc && rhs) {
-        if (this != &rhs) {
-            planes = std::move(rhs.planes);
-            RII_ASSERT(rhs.planes.empty());
-            layers     = rhs.layers;
-            rhs.layers = 0;
-            levels     = rhs.levels;
-            rhs.levels = 0;
-            size       = rhs.size;
-            rhs.size   = 0;
-            RII_ASSERT(rhs.empty());
-        }
-        return *this;
-    }
+    ImageDesc & operator=(ImageDesc &&);
 
     /// Reset to empty image
-    ImageDesc & clear() {
-        planes.clear();
-        layers = 0;
-        levels = 0;
-        size   = 0;
-        return *this;
-    }
+    ImageDesc & clear();
 
-    /// reset the descriptor
-    ImageDesc & reset(const PlaneDesc & baseMap, size_t layers = 1, size_t levels = 1, ConstructionOrder order = FACE_MAJOR, size_t planeOffsetAlignment = 4);
+    /// Reset the descriptor
+    /// \param baseMap Base map of the image. This is the first plane of the image.
+    /// \param layers  Number of layers in the image. Default is 1.
+    /// \param levels  Number of mipmap levels. Default is 1. Set to 0 to automatically generate the full mipmap chain.
+    /// \param order   Specify the order of image planes in memory. Default is FACE_MAJOR.
+    /// \param planeOffsetAlignment Alignment of the plane offset. Default is 4.
+    ImageDesc & reset(const PlaneDesc & baseMap, size_t layers = 1, size_t levels = 1, ConstructionOrder order = FACE_MAJOR,
+                      size_t planeOffsetAlignment = DEFAULT_ALIGNMENT);
 
     /// @brief Set to simple 2D Image
     /// @param format   Pixel format
@@ -1301,13 +1283,23 @@ struct ImageDesc {
     /// @param height   Height of the image in pixels
     /// @param levels   Mipmap count. Set to 0 to automatically generate full mipmap chain.
     ImageDesc & set2D(PixelFormat format, size_t width, size_t height = 1, size_t levels = 1, ConstructionOrder order = MIP_MAJOR,
-                      size_t planeOffsetAlignment = 4);
+                      size_t planeOffsetAlignment = DEFAULT_ALIGNMENT);
 
     /// @brief Set to simple 2D Image
     /// @param format   Pixel format
     /// @param width    Width and height of the image in pixels
     /// @param levels   Mipmap count. Set to 0 to automatically generate full mipmap chain.
-    ImageDesc & setCube(PixelFormat format, size_t width, size_t levels = 1, ConstructionOrder order = MIP_MAJOR, size_t planeOffsetAlignment = 4);
+    ImageDesc & setCube(PixelFormat format, size_t width, size_t levels = 1, ConstructionOrder order = MIP_MAJOR,
+                        size_t planeOffsetAlignment = DEFAULT_ALIGNMENT);
+
+    /// @brief Make a new image descriptor.
+    /// This method takes exactly same parameters as ImageDesc::reset() method.
+    static ImageDesc make(const PlaneDesc & baseMap, size_t layers = 1, size_t levels = 1, ConstructionOrder order = FACE_MAJOR,
+                          size_t planeOffsetAlignment = DEFAULT_ALIGNMENT) {
+        ImageDesc d;
+        d.reset(baseMap, layers, levels, order, planeOffsetAlignment);
+        return d;
+    }
 
     //@}
 
@@ -1360,7 +1352,30 @@ struct ImageDesc {
         return (level * layers) + layer;
     }
 
-    bool operator==(const ImageDesc & rhs) const { return planes == rhs.planes && layers == rhs.layers && levels == rhs.levels && size == rhs.size; }
+    struct AlignedDeleter {
+        void operator()(void * p) const { afree(p); }
+    };
+    using AlignedUniquePtr = std::unique_ptr<uint8_t, AlignedDeleter>;
+
+    /// @brief Load the image from input stream.
+    AlignedUniquePtr load(std::istream & stream);
+
+    /// @brief Load the image from memory buffer
+    AlignedUniquePtr load(const void * data, size_t size);
+
+    /// @brief Save the image plane to .ril stream.
+    /// RIL stands for (Rapid Image Library). This is the image file format specific to this library.
+    void saveToRIL(std::ostream & stream, const void * pixels) const;
+
+    /// Save the image plane as .dds file.
+    void saveToDDS(std::ostream & stream, const void * pixels) const;
+
+    /// A general save function. Use extension to determine file format. Currently only support .ril and .dds file.
+    void save(const std::string & filename, const void * pixels) const;
+
+    bool operator==(const ImageDesc & rhs) const {
+        return planes == rhs.planes && layers == rhs.layers && levels == rhs.levels && size == rhs.size && alignment == rhs.alignment;
+    }
 
     bool operator!=(const ImageDesc & rhs) const { return !operator==(rhs); }
 
@@ -1368,6 +1383,7 @@ struct ImageDesc {
         if (layers != rhs.layers) return layers < rhs.layers;
         if (levels != rhs.levels) return levels < rhs.levels;
         if (size != rhs.size) return size < rhs.size;
+        if (alignment != rhs.alignment) return alignment < rhs.alignment;
         if (planes.size() != rhs.planes.size()) return planes.size() < rhs.planes.size();
         for (size_t i = 0; i < planes.size(); ++i) {
             const auto & a = planes[i];
@@ -1378,6 +1394,7 @@ struct ImageDesc {
     }
 
 private:
+    AlignedUniquePtr loadFromRIL(std::istream & stream);
 };
 
 /// Image descriptor combined with a pointer to pixel array. This is a convenient helper class for passing image
@@ -1387,7 +1404,7 @@ struct ImageProxy {
     uint8_t * data = nullptr; ///< the image data (pixel array)
 
     /// return size of the whole image in bytes.
-    uint32_t size() const { return desc.size; }
+    uint64_t size() const { return desc.size; }
 
     /// check if the image is empty or not.
     bool empty() const { return desc.empty(); }
@@ -1411,6 +1428,15 @@ struct ImageProxy {
 
     /// return pointer to particular pixel
     uint8_t * pixel(size_t layer, size_t level, size_t x = 0, size_t y = 0, size_t z = 0) { return data + desc.pixel(layer, level, x, y, z); }
+
+    /// Save image to stream in RIL format.
+    void saveToRIL(std::ostream & stream) const { return desc.saveToRIL(stream, data); }
+
+    /// Save image to stream in DDS format.
+    void saveToDDS(std::ostream & stream) const { return desc.saveToDDS(stream, data); }
+
+    /// Save image to file
+    void save(const std::string & filename) const { return desc.save(filename, data); }
 };
 
 /// @brief The image class of rapid-image library.
@@ -1459,7 +1485,7 @@ public:
     uint8_t * data() { return _proxy.data; }
 
     /// return size of the whole image in bytes.
-    uint32_t size() const { return _proxy.desc.size; }
+    uint64_t size() const { return _proxy.desc.size; }
 
     /// check if the image is empty or not.
     bool empty() const { return _proxy.desc.empty(); }
@@ -1489,19 +1515,23 @@ public:
     /// aware of the memory and performance cost of it.
     Image clone() const { return Image(desc(), data()); }
 
-    // /// Save certain plane to disk file.
-    // void save(const std::string & filename, size_t layer, size_t level) const { desc().plane(layer, level).save(filename, proxy().pixel(layer, level)); }
+    /// Save image to stream in RIL format.
+    void saveToRIL(std::ostream & stream) const { return _proxy.saveToRIL(stream); }
 
-    // /// \name Image loading utilities
-    // //@{
-    // /// Helper method to load from a binary stream.
-    // static Image load(std::istream &);
+    /// Save image to stream in DDS format.
+    void saveToDDS(std::ostream & stream) const { return _proxy.saveToDDS(stream); }
 
-    // /// Helper method to load from a binary byte arry in memory.
-    // static Image load(const void * data, size_t size);
+    /// Save image to file
+    void save(const std::string & filename) const { return _proxy.save(filename); }
 
-    // /// Helper method to load from a file.
-    // static Image load(const std::string &);
+    /// Load image from binary input stream.
+    static Image load(std::istream &);
+
+    /// Load image from memory buffer.
+    static Image load(const void * data, size_t size);
+
+    /// Load image from file.
+    static Image load(const std::string & filename);
 
 private:
     ImageProxy _proxy;
@@ -1564,4 +1594,11 @@ struct hash<RAPID_IMAGE_NAMESPACE::ImageDesc> {
 
 #ifdef RAPID_IMAGE_IMPLEMENTATION
 #include "rapid-image.cpp"
+#endif
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+#ifdef _MSC_VER
+#pragma warning(pop)
 #endif
