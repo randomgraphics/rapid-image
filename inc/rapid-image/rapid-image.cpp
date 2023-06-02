@@ -21,7 +21,7 @@ constexpr PixelFormat::LayoutDesc PixelFormat::LAYOUTS[];
 // *********************************************************************************************************************
 
 void * aalloc(size_t a, size_t s) {
-#if _WIN32
+#ifdef _WIN32
     return _aligned_malloc(s, a);
 #else
     return aligned_alloc(a, s);
@@ -29,7 +29,7 @@ void * aalloc(size_t a, size_t s) {
 }
 
 void afree(void * p) {
-#if _WIN32
+#ifdef _WIN32
     _aligned_free(p);
 #else
     ::free(p);
@@ -136,7 +136,6 @@ PlaneDesc PlaneDesc::make(PixelFormat format, const Extent3D & extent, size_t st
 static inline uint32_t fromFloat(float value, uint32_t width, PixelFormat::Sign sign) {
     auto castFromFloat = [](float fp) {
         union {
-            ;
             uint32_t u;
             float    f;
         };

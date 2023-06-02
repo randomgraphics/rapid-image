@@ -1,4 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
 #include "../ril.h"
 #include "../3rd-party/catch2/catch.hpp"
 #include <cstdio>

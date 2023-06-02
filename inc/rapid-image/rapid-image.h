@@ -28,6 +28,7 @@ SOFTWARE.
 #pragma clang diagnostic ignored "-Wc++98-compat"
 #pragma clang diagnostic ignored "-Wold-style-cast"
 #pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
+#pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #endif
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -106,12 +107,12 @@ SOFTWARE.
 /// The runtime assert macro for debug build only. This macro has no effect when
 /// RAPID_IMAGE_ENABLE_DEBUG_BUILD is 0.
 #ifndef RAPID_IMAGE_ASSERT
-#define RAPID_IMAGE_ASSERT(expression, ...)                                               \
-    if (!(expression)) {                                                                  \
-        auto errorMessage_ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);                  \
-        RAPID_IMAGE_LOGE("Condition %s not met. %s", #expression, errorMessage_.c_str()); \
-        assert(false);                                                                    \
-    } else                                                                                \
+#define RAPID_IMAGE_ASSERT(expression, ...)                                                          \
+    if (!(expression)) {                                                                             \
+        auto rapidImageAssertMessage_ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);                  \
+        RAPID_IMAGE_LOGE("Condition %s not met. %s", #expression, rapidImageAssertMessage_.c_str()); \
+        assert(false);                                                                               \
+    } else                                                                                           \
         void(0)
 #endif
 
@@ -143,11 +144,11 @@ SOFTWARE.
 
 #define RII_NO_COPY(T)                 \
     T(const T &)             = delete; \
-    T & operator=(const T &) = delete;
+    T & operator=(const T &) = delete
 
 #define RII_NO_MOVE(T)            \
     T(T &&)             = delete; \
-    T & operator=(T &&) = delete;
+    T & operator=(T &&) = delete
 
 #define RII_NO_COPY_NO_MOVE(T) RII_NO_COPY(T) RII_NO_MOVE(T)
 
@@ -155,12 +156,12 @@ SOFTWARE.
 
 #define RII_STR_HELPER(x) #x
 
-#define RII_THROW(...)                                                                               \
-    do {                                                                                             \
-        std::stringstream ss___;                                                                     \
-        ss___ << __FILE__ << "(" << __LINE__ << "): " << RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__); \
-        RAPID_IMAGE_LOGE("%s", ss___.str().data());                                                  \
-        RAPID_IMAGE_THROW(ss___.str());                                                              \
+#define RII_THROW(...)                                                                                            \
+    do {                                                                                                          \
+        std::stringstream riiThrowStrStream_;                                                                     \
+        riiThrowStrStream_ << __FILE__ << "(" << __LINE__ << "): " << RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__); \
+        RAPID_IMAGE_LOGE("%s", riiThrowStrStream_.str().data());                                                  \
+        RAPID_IMAGE_THROW(riiThrowStrStream_.str());                                                              \
     } while (false)
 
 #if RAPID_IMAGE_ENABLE_DEBUG_BUILD
@@ -170,12 +171,12 @@ SOFTWARE.
 #define RII_ASSERT(...) ((void) 0)
 #endif
 
-#define RII_REQUIRE(condition, ...)                                                    \
-    do {                                                                               \
-        if (!(condition)) {                                                            \
-            auto errorMessage__ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);          \
-            RII_THROW("Condition " #condition " not met: %s", errorMessage__.c_str()); \
-        }                                                                              \
+#define RII_REQUIRE(condition, ...)                                                             \
+    do {                                                                                        \
+        if (!(condition)) {                                                                     \
+            auto riiRequireErrorMessage_ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);          \
+            RII_THROW("Condition " #condition " not met: %s", riiRequireErrorMessage_.c_str()); \
+        }                                                                                       \
     } while (false)
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1198,6 +1199,7 @@ struct ImageDesc {
     uint32_t               levels    = 0;                 ///< number of mipmap levels
     uint64_t               size      = 0;                 ///< total size in bytes of the whole image.
     uint32_t               alignment = DEFAULT_ALIGNMENT; ///< memory alignment requirement for each plane. Default is 4 bytes.
+    uint32_t : 32;                                        // pading;
 
     //@}
 

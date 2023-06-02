@@ -2,7 +2,7 @@
 if (MSVC)
     add_compile_options(/MP /W4 /WX)
 else()
-    add_compile_options(-Wall -Wextra -Werror -Wfatal-errors)
+    add_compile_options(-Wall -Wextra -Werror -Wconversion)
 endif()
 if (UNIX)
     link_libraries(dl)
