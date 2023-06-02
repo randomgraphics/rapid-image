@@ -7,6 +7,7 @@
 #endif
 #include <numeric>
 #include <cstring>
+#include <filesystem>
 
 namespace RAPID_IMAGE_NAMESPACE {
 
