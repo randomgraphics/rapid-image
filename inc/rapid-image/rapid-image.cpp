@@ -746,7 +746,7 @@ struct RILHeaderV1 {
 #pragma pack(pop)
 
 bool checkedRead(std::istream & stream, const char * action, void * buffer, size_t size) {
-    stream.read((char *) buffer, (std::streamsize)size);
+    stream.read((char *) buffer, (std::streamsize) size);
     if (!stream) {
         RAPID_IMAGE_LOGE("failed to %s: stream is not in good state.", action);
         return false;
@@ -834,10 +834,10 @@ void ImageDesc::saveToRIL(std::ostream & stream, const void * pixels) const {
     stream.write((const char *) &header, sizeof(header));
 
     // write plane array
-    stream.write((const char *) planes.data(), (std::streamsize)planeArraySize);
+    stream.write((const char *) planes.data(), (std::streamsize) planeArraySize);
 
     // write pixel array
-    stream.write((const char *) pixels, (std::streamsize)size);
+    stream.write((const char *) pixels, (std::streamsize) size);
 }
 
 // *********************************************************************************************************************
