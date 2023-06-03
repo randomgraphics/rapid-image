@@ -72,7 +72,7 @@ To support other commonly seen image formats, like .PNG, .JPG and .BMP. You'll n
 #define STB_IMAGE_IMPLEMENTATION
 #include "../3rd-party/stb/stb_image.h"
 
-// enale saving to PNG/JPG/BMP file
+// enable saving to PNG/JPG/BMP file
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../3rd-party/stb/stb_image_write.h"
 
