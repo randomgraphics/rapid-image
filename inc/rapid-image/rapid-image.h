@@ -403,30 +403,32 @@ union PixelFormat {
 #if RII_LITTLE_ENDIAN
         /// @brief Defines pixel layout. See \ref Layout for details.
         /// When this field is empty, the whole pixel forma is considered empty/invalid.
-        unsigned int layout    : 7;
-        unsigned int reserved0 : 1; ///< reserved, must be zero.
-        unsigned int sign012   : 4; ///< sign for channels 0/1/2. See \ref Sign.
-        unsigned int sign3     : 4; ///< sign for channel 3. See \ref Sign.
-        unsigned int swizzle0  : 3; ///< Swizzle for channel 0. See \ref Swizzle.
-        unsigned int swizzle1  : 3; ///< Swizzle for channel 1. See \ref Swizzle.
-        unsigned int swizzle2  : 3; ///< Swizzle for channel 2. See \ref Swizzle.
-        unsigned int swizzle3  : 3; ///< Swizzle for channel 3. See \ref Swizzle.
-        unsigned int reserved1 : 4; ///< reserved, must be zero
+        uint32_t layout    : 7;
+        uint32_t reserved0 : 1; ///< reserved, must be zero.
+        uint32_t sign0     : 4; ///< sign for channel 0. See \ref Sign.
+        uint32_t sign12    : 4; ///< sign for channel 1 and 2. See \ref Sign.
+        uint32_t sign3     : 4; ///< sign for channel 3. See \ref Sign.
+        uint32_t swizzle0  : 3; ///< Swizzle for channel 0. See \ref Swizzle.
+        uint32_t swizzle1  : 3; ///< Swizzle for channel 1. See \ref Swizzle.
+        uint32_t swizzle2  : 3; ///< Swizzle for channel 2. See \ref Swizzle.
+        uint32_t swizzle3  : 3; ///< Swizzle for channel 3. See \ref Swizzle.
 #else
-        unsigned int reserved1 : 4;
-        unsigned int swizzle3  : 3;
-        unsigned int swizzle2  : 3;
-        unsigned int swizzle1  : 3;
-        unsigned int swizzle0  : 3;
-        unsigned int sign3     : 4;
-        unsigned int sign012   : 4;
-        unsigned int reserved0 : 1;
-        unsigned int layout    : 7;
+        uint32_t swizzle3  : 3;
+        uint32_t swizzle2  : 3;
+        uint32_t swizzle1  : 3;
+        uint32_t swizzle0  : 3;
+        uint32_t sign3     : 4;
+        uint32_t sign12    : 4;
+        uint32_t sign0     : 4;
+        uint32_t reserved0 : 1;
+        uint32_t layout    : 7;
 #endif
     };
-    uint32_t u32; ///< pixel format as unsigned integer
 
-    /// @\brief Pixel layout. Defines number of channels in the layout, and number of bits in each channel.
+    /// @brief Pixel format represented as a single 32-bit unsigned integer
+    uint32_t u32;
+
+    /// @brief Pixel layout. Defines number of channels in the layout, and number of bits in each channel.
     ///
     /// The order of the channels is always started from the last significant bit. For example, for LAYOUT_5_5_5_1,
     /// the least significant 5 bits are for channel 0, the highest 1 bit is for channel 3. Note that the actual
@@ -643,31 +645,34 @@ union PixelFormat {
         SWIZZLE_X001 = (0 << 0) | (4 << 3) | (4 << 6) | (5 << 9),
         SWIZZLE_XXX1 = (0 << 0) | (0 << 3) | (0 << 6) | (5 << 9),
         SWIZZLE_111X = (5 << 0) | (5 << 3) | (5 << 6) | (0 << 9),
+        SWIZZLE_0Y00 = (0 << 0) | (1 << 3) | (4 << 6) | (4 << 9),
+        SWIZZLE_0Y01 = (0 << 0) | (1 << 3) | (4 << 6) | (5 << 9),
     };
 
     /// @brief Construct pixel format from individual properties.
-    static constexpr PixelFormat make(Layout l, Sign si012, Sign si3, Swizzle sw0, Swizzle sw1, Swizzle sw2, Swizzle sw3) {
+    static constexpr PixelFormat make(Layout l, Sign si0, Sign si12, Sign si3, Swizzle sw0, Swizzle sw1, Swizzle sw2, Swizzle sw3) {
         // clang-format off
         return {{
-            (unsigned int)l     & 0x7f,
+            (uint32_t)l     & 0x7f,
             0,
-            (unsigned int)si012 & 0xf,
-            (unsigned int)si3   & 0xf,
-            (unsigned int)sw0   & 0x7,
-            (unsigned int)sw1   & 0x7,
-            (unsigned int)sw2   & 0x7,
-            (unsigned int)sw3   & 0x7,
-            0,
+            (uint32_t)si0   & 0xf,
+            (uint32_t)si12  & 0xf,
+            (uint32_t)si3   & 0xf,
+            (uint32_t)sw0   & 0x7,
+            (uint32_t)sw1   & 0x7,
+            (uint32_t)sw2   & 0x7,
+            (uint32_t)sw3   & 0x7,
         }};
         // clang-format on
     }
 
     /// @brief Construct pixel format from individual properties.
-    static constexpr PixelFormat make(Layout l, Sign si012, Sign si3, Swizzle4 sw0123) {
+    static constexpr PixelFormat make(Layout l, Sign si0, Sign si12, Sign si3, Swizzle4 sw0123) {
         // clang-format off
         return make(
             l,
-            si012,
+            si0,
+            si12,
             si3,
             (Swizzle)(((int)sw0123>>0)&3),
             (Swizzle)(((int)sw0123>>3)&3),
@@ -677,9 +682,17 @@ union PixelFormat {
     }
 
     /// @brief Construct pixel format from individual properties.
-    static constexpr PixelFormat make(Layout l, Sign si0123, Swizzle4 sw0123) { return make(l, si0123, si0123, sw0123); }
+    static constexpr PixelFormat make(Layout l, Sign si012, Sign si3, Swizzle sw0, Swizzle sw1, Swizzle sw2, Swizzle sw3) {
+        return make(l, si012, si012, si3, sw0, sw1, sw2, sw3);
+    }
 
-    /// @brief Convert DXGI_FORMAT to PixelFormat
+    /// @brief Construct pixel format from individual properties.
+    static constexpr PixelFormat make(Layout l, Sign si012, Sign si3, Swizzle4 sw0123) { return make(l, si012, si012, si3, sw0123); }
+
+    /// @brief Construct pixel format from individual properties.
+    static constexpr PixelFormat make(Layout l, Sign si0123, Swizzle4 sw0123) { return make(l, si0123, si0123, si0123, sw0123); }
+
+    /// @brief Construct pixel format from DXGI_FORMAT enum
     static PixelFormat makeFromDXGIFormat(uint32_t);
 
     /// @brief Check if the pixel format is empty.
@@ -690,14 +703,14 @@ union PixelFormat {
         // clang-format off
         return
             0 < layout && layout < NUM_COLOR_LAYOUTS &&
-            sign012  <= SIGN_FLOAT &&
+            sign0    <= SIGN_FLOAT &&
+            sign12   <= SIGN_FLOAT &&
             sign3    <= SIGN_FLOAT &&
             swizzle0 <= SWIZZLE_1 &&
             swizzle1 <= SWIZZLE_1 &&
             swizzle2 <= SWIZZLE_1 &&
             swizzle3 <= SWIZZLE_1 &&
-            0 == reserved0 &&
-            0 == reserved1;
+            0 == reserved0;
         // clang-format on
     }
 
@@ -839,15 +852,15 @@ union PixelFormat {
     static constexpr PixelFormat INT1()                        { return R_32_SINT(); }
     static constexpr PixelFormat FLOAT1()                      { return R_32_FLOAT(); }
 
-    static constexpr PixelFormat GR_8_UINT_24_UNORM()          { return make(LAYOUT_8_24, SIGN_UINT, SIGN_UNORM, SWIZZLE_Y, SWIZZLE_X, SWIZZLE_0, SWIZZLE_1); }
-    static constexpr PixelFormat GX_8_24_UNORM()               { return make(LAYOUT_8_24, SIGN_UINT, SIGN_UNORM, SWIZZLE_Y, SWIZZLE_0, SWIZZLE_0, SWIZZLE_1); }
+    static constexpr PixelFormat GR_8_UINT_24_UNORM()          { return make(LAYOUT_8_24, SIGN_UINT, SIGN_UNORM, SIGN_UINT, SWIZZLE_Y, SWIZZLE_X, SWIZZLE_0, SWIZZLE_1); }
+    static constexpr PixelFormat GX_8_24_UNORM()               { return make(LAYOUT_8_24, SIGN_UINT, SIGN_UNORM, SIGN_UINT, SWIZZLE_Y, SWIZZLE_0, SWIZZLE_0, SWIZZLE_1); }
 
-    static constexpr PixelFormat RG_24_UNORM_8_UINT()          { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SWIZZLE_XY01); }
-    static constexpr PixelFormat RX_24_8_UNORM()               { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SWIZZLE_XY01); }
-    static constexpr PixelFormat RG_24_8_UINT()                { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SWIZZLE_XY01); }
-    static constexpr PixelFormat XG_24_8_UINT()                { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SWIZZLE_0, SWIZZLE_Y, SWIZZLE_0, SWIZZLE_1); }
+    static constexpr PixelFormat RG_24_UNORM_8_UINT()          { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SIGN_UINT, SWIZZLE_XY01); }
+    static constexpr PixelFormat RX_24_8_UNORM()               { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SIGN_UINT, SWIZZLE_XY01); }
+    static constexpr PixelFormat RG_24_8_UINT()                { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SIGN_UINT, SWIZZLE_XY01); }
+    static constexpr PixelFormat XG_24_8_UINT()                { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SIGN_UINT, SWIZZLE_0Y01); }
 
-    static constexpr PixelFormat RG_24_FLOAT_8_UINT()          { return make(LAYOUT_24_8, SIGN_FLOAT, SIGN_UINT, SWIZZLE_XY01); }
+    static constexpr PixelFormat RG_24_FLOAT_8_UINT()          { return make(LAYOUT_24_8, SIGN_FLOAT, SIGN_UINT, SIGN_UINT, SWIZZLE_XY01); }
 
     static constexpr PixelFormat GRGB_UNORM()                  { return make(LAYOUT_GRGB, SIGN_UNORM, SWIZZLE_XYZ1); }
     static constexpr PixelFormat RGBG_UNORM()                  { return make(LAYOUT_RGBG, SIGN_UNORM, SWIZZLE_XYZ1); }
@@ -873,10 +886,10 @@ union PixelFormat {
     static constexpr PixelFormat RG_32_32_FLOAT()              { return make(LAYOUT_32_32, SIGN_FLOAT, SWIZZLE_XY01); }
     static constexpr PixelFormat FLOAT2()                      { return RG_32_32_FLOAT(); }
 
-    static constexpr PixelFormat RGX_32_FLOAT_8_UINT_24()      { return make(LAYOUT_32_8_24, SIGN_FLOAT, SIGN_UINT, SWIZZLE_XY01); }
-    static constexpr PixelFormat RXX_32_8_24_FLOAT()           { return make(LAYOUT_32_8_24, SIGN_FLOAT, SIGN_UINT, SWIZZLE_X001); }
-    static constexpr PixelFormat RGX_32_8_24_UINT()            { return make(LAYOUT_32_8_24, SIGN_UINT,  SIGN_UINT, SWIZZLE_XY01); }
-    static constexpr PixelFormat XGX_32_8_24_UINT()            { return make(LAYOUT_32_8_24, SIGN_UINT,  SIGN_UINT, SWIZZLE_0, SWIZZLE_Y, SWIZZLE_0, SWIZZLE_1); }
+    static constexpr PixelFormat RGX_32_FLOAT_8_UINT_24()      { return make(LAYOUT_32_8_24, SIGN_FLOAT, SIGN_UINT, SIGN_UINT, SWIZZLE_XY01); }
+    static constexpr PixelFormat RXX_32_8_24_FLOAT()           { return make(LAYOUT_32_8_24, SIGN_FLOAT, SIGN_UINT, SIGN_UINT, SWIZZLE_X001); }
+    static constexpr PixelFormat RGX_32_8_24_UINT()            { return make(LAYOUT_32_8_24, SIGN_UINT, SWIZZLE_XY01); }
+    static constexpr PixelFormat XGX_32_8_24_UINT()            { return make(LAYOUT_32_8_24, SIGN_UINT, SWIZZLE_0Y01); }
 
     // 96 bits
     static constexpr PixelFormat RGB_32_32_32_UNORM()          { return make(LAYOUT_32_32_32, SIGN_UNORM, SWIZZLE_XYZ1); }
