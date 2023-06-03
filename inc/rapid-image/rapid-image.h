@@ -217,7 +217,7 @@ format(const char * format, ...) {
     return buffer;
 }
 
-/// Overload of format() method for empty parameter list.
+/// Overload of format() function for empty parameter list.
 inline std::string format() { return ""s; }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -230,8 +230,8 @@ void * aalloc(size_t a, size_t s);
 void afree(void * p);
 
 // ---------------------------------------------------------------------------------------------------------------------
-
-union uint128_t {
+/// @brief A convenience class that we use to hold one uncompressed pixel of any format
+union OnePixel {
     struct {
         uint64_t lo;
         uint64_t hi;
@@ -242,11 +242,11 @@ union uint128_t {
     uint64_t u64[2];
     float    f32[4];
 
-    static inline uint128_t make(const void * data, size_t size) {
+    static inline OnePixel make(const void * data, size_t size) {
         RII_ASSERT(size <= 16);
-        uint128_t r   = {};
-        auto      src = (const uint8_t *) data;
-        auto      end = src + size;
+        OnePixel r   = {};
+        auto     src = (const uint8_t *) data;
+        auto     end = src + size;
         for (auto dst = r.u8; src < end; ++src, ++dst) { *dst = *src; }
         return r;
     }
@@ -316,7 +316,7 @@ union RGBA8 {
 static_assert(sizeof(RGBA8) == 4, "");
 
 /// @brief Represents one RGBA16F pixel
-union half4 {
+union Half4 {
     struct {
         uint16_t x, y, z, w;
     };
@@ -330,31 +330,31 @@ union half4 {
     uint64_t u64;
     int64_t  i64;
 
-    static half4 make(uint16_t r, uint16_t g, uint16_t b, uint16_t a) { return {{r, g, b, a}}; }
+    static Half4 make(uint16_t r, uint16_t g, uint16_t b, uint16_t a) { return {{r, g, b, a}}; }
 
-    static half4 make(const uint16_t * p) { return {{p[0], p[1], p[2], p[3]}}; }
+    static Half4 make(const uint16_t * p) { return {{p[0], p[1], p[2], p[3]}}; }
 };
 
 /// @brief Represents one RGBA32F pixel
-union float4 {
+union Float4 {
     struct {
         float x, y, z, w;
     };
     struct {
         float r, g, b, a;
     };
-    float     f32[4];
-    uint32_t  u32[4];
-    int32_t   i32[4];
-    uint64_t  u64[2];
-    int64_t   i64[2];
-    uint128_t u128;
+    float    f32[4];
+    uint32_t u32[4];
+    int32_t  i32[4];
+    uint64_t u64[2];
+    int64_t  i64[2];
+    OnePixel u128;
 
-    static float4 make(float r, float g, float b, float a) { return {{r, g, b, a}}; }
+    static Float4 make(float r, float g, float b, float a) { return {{r, g, b, a}}; }
 
-    static float4 make(const float * p) { return {{p[0], p[1], p[2], p[3]}}; }
+    static Float4 make(const float * p) { return {{p[0], p[1], p[2], p[3]}}; }
 
-    float4 & operator+=(const float4 & v) {
+    Float4 & operator+=(const Float4 & v) {
         x += v.x;
         y += v.y;
         z += v.z;
@@ -362,7 +362,7 @@ union float4 {
         return *this;
     }
 
-    float4 & operator-=(const float4 & v) {
+    Float4 & operator-=(const Float4 & v) {
         x -= v.x;
         y -= v.y;
         z -= v.z;
@@ -370,7 +370,7 @@ union float4 {
         return *this;
     }
 
-    float4 & operator*=(const float4 & v) {
+    Float4 & operator*=(const Float4 & v) {
         x *= v.x;
         y *= v.y;
         z *= v.z;
@@ -378,7 +378,7 @@ union float4 {
         return *this;
     }
 
-    float4 & operator/=(const float4 & v) {
+    Float4 & operator/=(const Float4 & v) {
         x /= v.x;
         y /= v.y;
         z /= v.z;
@@ -386,7 +386,7 @@ union float4 {
         return *this;
     }
 
-    float4 & operator*=(float v) {
+    Float4 & operator*=(float v) {
         x *= v;
         y *= v;
         z *= v;
@@ -394,7 +394,7 @@ union float4 {
         return *this;
     }
 };
-static_assert(sizeof(float4) == 128 / 8, "");
+static_assert(sizeof(Float4) == 128 / 8, "");
 
 // ---------------------------------------------------------------------------------------------------------------------
 /// @brief Pixel format structure
@@ -717,10 +717,10 @@ union PixelFormat {
     constexpr uint8_t bytesPerBlock() const { return LAYOUTS[layout].blockBytes; }
 
     /// @brief Load uncompressed pixel value from float4. Do not support compressed format.
-    uint128_t loadFromFloat4(const float4 &) const;
+    OnePixel loadFromFloat4(const Float4 &) const;
 
     /// @brief Store uncompressed pixel value to float4.
-    float4 storeToFloat4(const void *) const;
+    Float4 storeToFloat4(const void *) const;
 
     // /// @brief Convert PixelFormat to DXGI_FORMAT
     // uint32_t toDXGIFormat() const;
@@ -1173,7 +1173,7 @@ struct PlaneDesc {
 
     /// Convert the image plane to float4 format.
     /// \return Pixel data in float4 format.
-    std::vector<float4> toFloat4(const void * src) const;
+    std::vector<Float4> toFloat4(const void * src) const;
 
     /// Convert image plane to rgba8 format.
     /// \return Pixel data in rgba8 format.

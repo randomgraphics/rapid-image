@@ -1,6 +1,7 @@
 # P0 (required to make the repository public)
 
 - integrate with stb_image.h to import .jpg/.png/.bmp
+- setup CI
 
 # P1 (can postpone after the repo is public)
 - save from .dds

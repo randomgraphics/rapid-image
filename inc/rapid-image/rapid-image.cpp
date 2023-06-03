@@ -201,12 +201,12 @@ static inline float tofloat(uint32_t value, uint32_t width, PixelFormat::Sign si
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-uint128_t PixelFormat::loadFromFloat4(const float4 & pixel) const {
+OnePixel PixelFormat::loadFromFloat4(const Float4 & pixel) const {
     const PixelFormat::LayoutDesc & ld = layoutDesc();
 
     RII_ASSERT(1 == ld.blockWidth && 1 == ld.blockHeight); // do not support compressed format.
 
-    uint128_t result = {};
+    OnePixel result = {};
 
     auto convertToChannel = [&](uint32_t swizzle) {
         const auto & ch   = ld.channels[swizzle];
@@ -246,12 +246,12 @@ uint128_t PixelFormat::loadFromFloat4(const float4 & pixel) const {
 
 // ---------------------------------------------------------------------------------------------------------------------
 /// Convert pixel of arbitrary format to float4. Do not support compressed format.
-float4 PixelFormat::storeToFloat4(const void * pixel) const {
+Float4 PixelFormat::storeToFloat4(const void * pixel) const {
     const PixelFormat::LayoutDesc & ld = layoutDesc();
 
     RII_ASSERT(1 == ld.blockWidth && 1 == ld.blockHeight); // do not support compressed format.
 
-    auto src = uint128_t::make(pixel, ld.blockBytes);
+    auto src = OnePixel::make(pixel, ld.blockBytes);
 
     // lambda to convert one channel
     auto convertChannel = [&](uint32_t swizzle) {
@@ -262,7 +262,7 @@ float4 PixelFormat::storeToFloat4(const void * pixel) const {
         return tofloat(src.segment(ch.shift, ch.bits), ch.bits, sign);
     };
 
-    return float4::make(convertChannel(swizzle0), convertChannel(swizzle1), convertChannel(swizzle2), convertChannel(swizzle3));
+    return Float4::make(convertChannel(swizzle0), convertChannel(swizzle1), convertChannel(swizzle2), convertChannel(swizzle3));
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -312,7 +312,7 @@ float PixelFormat::getPixelChannelFloat(const void * pixel, size_t channel) {
     const LayoutDesc & selfLayoutDesc = layoutDesc();
 
     // Cast the pixel data so we can read it.
-    auto src = uint128_t::make(pixel, selfLayoutDesc.blockBytes);
+    auto src = OnePixel::make(pixel, selfLayoutDesc.blockBytes);
 
     // Get objects defining how pixels are read.
     const auto & channelDesc = selfLayoutDesc.channels[swizzle];
@@ -542,7 +542,7 @@ PlaneDesc PlaneDesc::make(PixelFormat format, const Extent3D & extent, size_t st
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-std::vector<float4> PlaneDesc::toFloat4(const void * pixels) const {
+std::vector<Float4> PlaneDesc::toFloat4(const void * pixels) const {
     if (empty()) {
         RAPID_IMAGE_LOGE("Can't save empty image plane.");
         return {};
@@ -553,7 +553,7 @@ std::vector<float4> PlaneDesc::toFloat4(const void * pixels) const {
         return {};
     }
     const uint8_t *     p = (const uint8_t *) pixels;
-    std::vector<float4> colors;
+    std::vector<Float4> colors;
     colors.reserve(extent.w * extent.h * extent.d);
     for (uint32_t z = 0; z < extent.d; ++z) {
         for (uint32_t y = 0; y < extent.h; ++y) {
@@ -603,7 +603,7 @@ void PlaneDesc::fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void *
         RAPID_IMAGE_LOGE("Can't load data to empty image plane.");
         return;
     }
-    const float4 * p  = (const float4 *) src;
+    const Float4 * p  = (const Float4 *) src;
     auto           ld = format.layoutDesc();
     if (ld.blockWidth > 1 || ld.blockHeight > 1) {
         RAPID_IMAGE_LOGE("does not support loading pixel data to compressed image plane.");
@@ -617,7 +617,7 @@ void PlaneDesc::fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void *
                 return;
             }
             uint8_t * d    = (uint8_t *) dst + dstOffset;
-            uint128_t temp = format.loadFromFloat4(*(p + y * extent.w + x));
+            OnePixel  temp = format.loadFromFloat4(*(p + y * extent.w + x));
             memcpy(d, &temp, ld.blockBytes); // TODO: Can we avoid this memcpy's?
         }
     }
@@ -658,13 +658,13 @@ Image PlaneDesc::generateMipmaps(const void * pixels, size_t maxLevels) const {
             auto pc = sx * sy * sz;                       // pixel count
             auto ps = src.format.layoutDesc().blockBytes; // pixel size
             RII_ASSERT(pc <= 8);
-            RII_ASSERT(ps <= sizeof(uint128_t));
+            RII_ASSERT(ps <= sizeof(OnePixel));
             for (size_t z = 0; z < dst.extent.d; ++z) {
                 for (size_t y = 0; y < dst.extent.h; ++y) {
                     for (size_t x = 0; x < dst.extent.w; ++x) {
                         // [x * sx, y * sy, z * sz] defines the corner pixel in the source image
                         // [sx, sy, sz] defines the extent of the pixel block in the source image
-                        float4 sum = {{0.0f, 0.0f, 0.0f, 0.0f}};
+                        Float4 sum = {{0.0f, 0.0f, 0.0f, 0.0f}};
                         for (size_t i = 0; i < pc; ++i) {
                             auto xx = x * sx + i % sx;
                             auto yy = y * sy + (i / sx) % sy;
