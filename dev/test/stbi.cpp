@@ -2,6 +2,9 @@
 #ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Wconversion"
 #endif
+#ifdef _MSC_VER
+#pragma warning(disable : 4244) // conversion from 'int' to 'char', possible loss of data
+#endif
 #define STB_IMAGE_IMPLEMENTATION
 #include "../3rd-party/stb/stb_image.h"
 
