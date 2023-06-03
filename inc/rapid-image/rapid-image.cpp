@@ -4,6 +4,7 @@
 #include <numeric>
 #include <cstring>
 #include <filesystem>
+#include <inttypes.h>
 
 namespace RAPID_IMAGE_NAMESPACE {
 
@@ -132,7 +133,7 @@ static inline uint32_t fromFloat(float value, uint32_t width, PixelFormat::Sign 
 /// \param value The channel value
 /// \param width The number of valid bits in that value
 /// \param sign  The channel's data format
-static inline float tofloat(uint32_t value, uint32_t width, PixelFormat::Sign sign) {
+static inline float toFloat(uint32_t value, uint32_t width, PixelFormat::Sign sign) {
     auto castToFloat = [](uint32_t u32) {
         union {
             ;
@@ -197,6 +198,13 @@ static inline float tofloat(uint32_t value, uint32_t width, PixelFormat::Sign si
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
+static inline PixelFormat::Sign getSign(const PixelFormat & format, size_t channel) {
+    RII_ASSERT(channel < 4);
+    return (PixelFormat::Sign)((0 == channel) ? format.sign0 : (3 == channel) ? format.sign3 : format.sign12);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
 OnePixel PixelFormat::loadFromFloat4(const Float4 & pixel) const {
     const PixelFormat::LayoutDesc & ld = layoutDesc();
 
@@ -206,7 +214,7 @@ OnePixel PixelFormat::loadFromFloat4(const Float4 & pixel) const {
 
     auto convertToChannel = [&](uint32_t swizzle) {
         const auto & ch   = ld.channels[swizzle];
-        auto         sign = (PixelFormat::Sign)((swizzle < 3) ? sign012 : sign3);
+        auto         sign = getSign(*this, swizzle);
         uint32_t     value;
         switch (swizzle) {
         case PixelFormat::SWIZZLE_X:
@@ -254,8 +262,8 @@ Float4 PixelFormat::storeToFloat4(const void * pixel) const {
         if (PixelFormat::SWIZZLE_0 == swizzle) return 0.f;
         if (PixelFormat::SWIZZLE_1 == swizzle) return 1.f;
         const auto & ch   = ld.channels[swizzle];
-        auto         sign = (PixelFormat::Sign)((swizzle < 3) ? sign012 : sign3);
-        return tofloat(src.segment(ch.shift, ch.bits), ch.bits, sign);
+        auto         sign = getSign(*this, swizzle);
+        return toFloat(src.segment(ch.shift, ch.bits), ch.bits, sign);
     };
 
     return Float4::make(convertChannel(swizzle0), convertChannel(swizzle1), convertChannel(swizzle2), convertChannel(swizzle3));
@@ -279,43 +287,30 @@ static void convertToRGBA8(RGBA8 * result, const PixelFormat::LayoutDesc & ld, c
     }
 }
 
+static inline PixelFormat::Swizzle getSwizzledChannel(const PixelFormat & format, size_t channel) {
+    RII_ASSERT(channel < 4, "channel must be [0..3]");
+    return (PixelFormat::Swizzle)(format.u32 << (20 + channel * 3) & 0x7);
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 //
 float PixelFormat::getPixelChannelFloat(const void * pixel, size_t channel) {
-    // Get the swizzle for the desired channel.
-    unsigned int swizzle;
-    switch (channel) {
-    case 0:
-        swizzle = swizzle0;
-        break;
-    case 1:
-        swizzle = swizzle1;
-        break;
-    case 2:
-        swizzle = swizzle2;
-        break;
-    case 3:
-        swizzle = swizzle3;
-        break;
-    default:
-        RII_THROW("Used invalid channel %zu when channel must be in range [0..3].", channel);
-        break;
-    }
-
+    // get swizzle of the channel.
+    auto swizzle = getSwizzledChannel(*this, channel);
     if (swizzle == PixelFormat::SWIZZLE_0) { return 0.0f; }
     if (swizzle == PixelFormat::SWIZZLE_1) { return 1.0f; }
 
     const LayoutDesc & selfLayoutDesc = layoutDesc();
 
-    // Cast the pixel data so we can read it.
-    auto src = OnePixel::make(pixel, selfLayoutDesc.blockBytes);
-
     // Get objects defining how pixels are read.
     const auto & channelDesc = selfLayoutDesc.channels[swizzle];
 
-    auto sign = (PixelFormat::Sign)((swizzle < 3) ? sign012 : sign3);
+    // Get the sign of the channel.
+    auto sign = getSign(*this, swizzle);
 
-    return tofloat(src.segment(channelDesc.shift, channelDesc.bits), channelDesc.bits, sign);
+    // read floating point value of the channel.
+    auto src = OnePixel::make(pixel, selfLayoutDesc.blockBytes);
+    return toFloat(src.segment(channelDesc.shift, channelDesc.bits), channelDesc.bits, sign);
 }
 
 inline static constexpr PixelFormat DXGI_FORMATS[] = {
