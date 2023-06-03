@@ -26,6 +26,38 @@ Here's how you integrate it with your project:
 #include <rapid-image/rapid-image.h>
 ```
 
+# Pixel Format
+
+One of the unique parts of this library is how pixel format is defined. Instead of using enum, pixel format is represented by a 32 bits structure:
+
+```c
+struct PixelFormat {
+  unsigned int layout    : 7;
+  unsigned int reserved0 : 1;
+  unsigned int sign0     : 4;
+  unsigned int sign12    : 4;
+  unsigned int sign3     : 4;
+  unsigned int swizzle0  : 3;
+  unsigned int swizzle1  : 3;
+  unsigned int swizzle2  : 3;
+  unsigned int swizzle3  : 3;
+};
+
+0        1          2               3         <- Byte number
++------+-+----+-----+-----+-----+-----+-----+-----+     
+|Layout|-|S0  |S12  |S3   |S0   |S1   |S2   |S3   |
++------+-+----+-----+-----+-----+-----+-----+-----+ 
+| 0-6  |7|8-11|12-15|16-18|19-21|22-24|25-27|28-31|
+```
+
+- **Layout** field is a enum that defines the number of channels and how many bits are there in each channel. Such as 8_8_8_8, 10_10_10_2 and etc.
+- **Sign** fields defines the number format of each channel, such as UNORM, SNORM, FLOAT and etc. Note that we only have enough space for 3 sign values. So sign for channel 1 and 2 are combined together.
+- **Swizzle** fields defines how channel are swizzled. It has 6 values: X, Y, Z, W, 0, 1.
+
+With this structure we can define pixel format that maps to format enums from all existing modern graphics APIs in a very consistent way. It is also very intuitive to retrieve each color channel's properties, like number of bits, formats and etc, from this format definition.
+
+You are also able to define unconventional pixel formats if that's what you need. For example, you can have a pixel format that stores unsigned integer in R channel, and floating pointer value in G channel.
+
 # Support to PNG/JPG/BMP file formats
 By default rapid-vulkan library supports loading & saving image from/to **.RIL** and **.DDS** file.
 
