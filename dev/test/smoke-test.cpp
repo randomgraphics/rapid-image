@@ -14,7 +14,7 @@
 using namespace ril;
 using namespace std::string_literals;
 
-TEST_CASE("dxt1-face-major", "[image]") {
+TEST_CASE("dxt1-face-major") {
     auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 0, ImageDesc::FACE_MAJOR, 4); // set alignment to 4.
     REQUIRE(desc.slice(0, 0) == 32768);
     REQUIRE(desc.slice(0, 1) == 8192);
@@ -39,7 +39,7 @@ TEST_CASE("dxt1-face-major", "[image]") {
     REQUIRE(desc.pixel(0, 8) == desc.pixel(0, 7) + desc.slice(0, 7));
 }
 
-TEST_CASE("dxt1-mip-major", "[image]") {
+TEST_CASE("dxt1-mip-major") {
     auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 0, ImageDesc::MIP_MAJOR, 4); // set alignment to 4.
     REQUIRE(desc.slice(0, 0) == 32768);
     REQUIRE(desc.slice(0, 1) == 8192);
@@ -61,7 +61,7 @@ TEST_CASE("dxt1-mip-major", "[image]") {
     REQUIRE(desc.pixel(5, 0) == desc.pixel(4, 0) + desc.slice(4, 0));
 }
 
-TEST_CASE("default-alignment", "[image]") {
+TEST_CASE("default-alignment") {
     // create a multi-plane image with default alignment
     Image        image(ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA8(), {2, 2, 2}), 4, 0));
     const auto & desc = image.desc();
@@ -69,7 +69,7 @@ TEST_CASE("default-alignment", "[image]") {
     for (const auto & p : desc.planes) { REQUIRE(0 == (p.offset % desc.alignment)); }
 }
 
-TEST_CASE("ril-save-load", "[image]") {
+TEST_CASE("ril-save-load") {
     // create a multi-plane image with default alignment
     Image img1(ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA8(), {2, 2, 2}), 4, 0));
 
@@ -91,21 +91,22 @@ TEST_CASE("ril-save-load", "[image]") {
     REQUIRE(img1.desc() == img2.desc());
 }
 
-// TEST_CASE("rgba32f", "[image]") {
-//     auto path = std::filesystem::path(TEST_FOLDER) / "rgba32f-64x64.dds";
-//     PH_LOGI("load image from file: %s", path.string().c_str());
-//     auto image = Image::load(path.string());
-//     REQUIRE(image.width() == 64);
-//     REQUIRE(image.height() == 64);
-//     auto pixels = image.desc().plane().toRGBA8(image.data());
-//     auto p0     = pixels[0];
-//     REQUIRE(p0.x == 166);
-//     REQUIRE(p0.y == 166);
-//     REQUIRE(p0.z == 166);
-//     REQUIRE(p0.w == 255);
-// }
+TEST_CASE("dds") {
+    auto path = std::filesystem::path(TEST_SOURCE_DIR) / "rgba32f-64x64.dds";
+    RAPID_IMAGE_LOGI("load from file: %s", path.string().c_str());
+    auto image = Image::load(path.string());
+    REQUIRE(!image.empty());
+    REQUIRE(image.width() == 64);
+    REQUIRE(image.height() == 64);
+    auto pixels = image.desc().plane().toRGBA8(image.data());
+    auto p0     = pixels[0];
+    REQUIRE(p0.x == 166);
+    REQUIRE(p0.y == 166);
+    REQUIRE(p0.z == 166);
+    REQUIRE(p0.w == 255);
+}
 
-// TEST_CASE("save-to-png", "[image]") {
+// TEST_CASE("save-to-png") {
 //     auto path1 = (std::filesystem::path(TEST_FOLDER) / "alien-planet.jpg").string();
 //     PH_LOGI("load image from file: %s", path1.c_str());
 //     auto r1 = Image::load(path1);
@@ -125,7 +126,7 @@ TEST_CASE("ril-save-load", "[image]") {
 //     REQUIRE(0 == memcmp(r1.data(), r2.data(), r1.size()));
 // }
 
-// TEST_CASE("astc-texture-handling", "[image]") {
+// TEST_CASE("astc-texture-handling") {
 //     auto path = std::filesystem::path(TEST_FOLDER) / "alien-planet-4x4.astc";
 //     PH_LOGI("load image from file: %s", path.string().c_str());
 //     auto ri = Image::load(path.string());
@@ -251,7 +252,7 @@ TEST_CASE("ril-save-load", "[image]") {
 //     CHECK(ri.height() == 486);
 // }
 
-// TEST_CASE("plane-data-reconversion-from-float-functions", "[image]") {
+// TEST_CASE("plane-data-reconversion-from-float-functions") {
 //     auto path = std::filesystem::path(TEST_FOLDER) / "alien-planet.jpg";
 //     auto ri   = Image::load(path.string());
 
@@ -264,7 +265,7 @@ TEST_CASE("ril-save-load", "[image]") {
 //     delete[] dst;
 // }
 
-// TEST_CASE("step-and-pitch-checks-on-mipmap-generation-routines", "[image]") {
+// TEST_CASE("step-and-pitch-checks-on-mipmap-generation-routines") {
 //     auto ri = Image(ImageDesc(PlaneDesc::make(PixelFormat::RG_8_8_UNORM(), 2, 2, 1, 4, 16)));
 //     REQUIRE(ri.desc().levels == 1);
 
@@ -332,7 +333,7 @@ TEST_CASE("ril-save-load", "[image]") {
 //     REQUIRE(ri2.data()[9] == 5);
 // }
 
-// TEST_CASE("ktx2", "[image]") {
+// TEST_CASE("ktx2") {
 //     auto path = std::filesystem::path(TEST_FOLDER) / "bumper-panorama.ktx2";
 //     PH_LOGI("load image from file: %s", path.string().c_str());
 //     auto ri = Image::load(path.string());
@@ -354,7 +355,7 @@ TEST_CASE("ril-save-load", "[image]") {
 // #if _WIN32
 // #include <windows.h>
 // #include <excpt.h>
-// TEST_CASE("convert-float4", "[image]") {
+// TEST_CASE("convert-float4") {
 //     // allocate 2 pages of memory (each page is 4K bytes)
 //     uint8_t * data = (uint8_t *) VirtualAlloc(0, 8 * 1024 * 1024, MEM_RESERVE, PAGE_READWRITE);
 
