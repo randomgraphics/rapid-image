@@ -1,6 +1,8 @@
 set(CMAKE_CXX_STANDARD 20)
 add_executable(rapid-image-test
+    custom-namespace.cpp
     smoke-test.cpp
+    stbi.cpp
     test-main.cpp
 )
 # convert CMAKE_CURRENT_SOURCE_DIR to absolute path

@@ -1,10 +1,6 @@
 #undef RAPID_IMAGE_IMPLEMENTATION
 #include "rapid-image.h"
 
-#ifdef __GNUC__
-#pragma GCC diagnostic ignored "-Wconversion"
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#endif
 #include <numeric>
 #include <cstring>
 #include <filesystem>
@@ -58,7 +54,7 @@ static inline uint32_t fromFloat(float value, uint32_t width, PixelFormat::Sign 
             value = 0.0f;
         else if (value > 1.0f)
             value = 1.0f;
-        return (uint32_t) (value * mask);
+        return (uint32_t) (value * (float) mask);
 
     case PixelFormat::SIGN_FLOAT:
         // 10 bits    =>                         EE EEEFFFFF
@@ -116,7 +112,7 @@ static inline uint32_t fromFloat(float value, uint32_t width, PixelFormat::Sign 
         }
 
     case PixelFormat::SIGN_UINT:
-        if (value > mask) return mask;
+        if (value > (float) mask) return mask;
         return (uint32_t) value;
 
     case PixelFormat::SIGN_SNORM:
@@ -671,7 +667,7 @@ Image PlaneDesc::generateMipmaps(const void * pixels, size_t maxLevels) const {
                             auto zz = z * sz + i / (sx * sy);
                             sum += src.format.storeToFloat4(data + src.pixel(xx, yy, zz));
                         }
-                        sum *= 1.0f / pc;
+                        sum *= 1.0f / (float) pc;
                         auto avg = dst.format.loadFromFloat4(sum);
                         memcpy(data + dst.pixel(x, y, z), &avg, ps);
                     }
@@ -1106,7 +1102,7 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromDDS(std::istream & stream) {
     if (0 == levels) levels = 1;
 
     // Now we have everything we need to create the image descriptor. Note that DDS image's pixel data is always aligned to 4 bytes.
-    auto desc = ImageDesc::make(PlaneDesc::make(format, {width, height, depth}), faces, levels, ril::ImageDesc::FACE_MAJOR, 4);
+    auto desc = ImageDesc::make(PlaneDesc::make(format, {width, height, depth}), faces, levels, ImageDesc::FACE_MAJOR, 4);
     RII_ASSERT(desc.valid());
 
     // Read pixel data
@@ -1347,7 +1343,45 @@ ImageDesc::AlignedUniquePtr ImageDesc::load(std::istream & stream) {
         return loadFromDDS(stream);
     }
 
-    // done
+#ifdef STBI_INCLUDE_STB_IMAGE_H
+    // try load using stb_image.h
+    {
+        stream.seekg(begin, std::ios::beg);
+        stbi_io_callbacks io = {};
+        io.read              = [](void * user, char * data, int size) -> int {
+            auto fp = (std::istream *) user;
+            fp->read(data, size);
+            return (int) fp->gcount();
+        };
+        io.skip = [](void * user, int n) {
+            auto fp = (std::istream *) user;
+            fp->seekg(n, std::ios::cur);
+        };
+        io.eof = [](void * user) -> int {
+            auto fp = (std::istream *) user;
+            return fp->eof();
+        };
+        int  x, y, n;
+        auto data = stbi_load_from_callbacks(&io, &stream, &x, &y, &n, 4); // TODO: hdr/grayscale support
+        if (data) {
+            auto desc = ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA_8_8_8_8_UNORM(), {(uint32_t) x, (uint32_t) y}));
+            RII_ASSERT(desc.valid());
+
+            // copy pixel data to memory aligned buffer
+            auto pixels = AlignedUniquePtr((uint8_t *) aalloc(desc.alignment, desc.size));
+            memcpy(pixels.get(), data, desc.size);
+            stbi_image_free(data);
+
+            // done
+            *this = std::move(desc);
+            return pixels;
+        }
+    }
+#else
+    // TODO: remind user to include stb_image.h
+#endif
+
+    // Have tried everything w/o luck.
     RAPID_IMAGE_LOGE("failed to read image from stream: unsupported/unrecognized file format.");
     return {};
 }

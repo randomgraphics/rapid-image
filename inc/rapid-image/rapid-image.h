@@ -1398,19 +1398,29 @@ struct ImageDesc {
     using AlignedUniquePtr = std::unique_ptr<uint8_t, AlignedDeleter>;
 
     /// @brief Load the image from input stream.
+    /// This method support .RIL and .DDS formats by default. It can also support loading from other common image formats if
+    /// stb_image.h is included before this header.
     AlignedUniquePtr load(std::istream & stream);
 
     /// @brief Load the image from memory buffer
+    /// This method support .RIL and .DDS formats by default. It can also support loading from other common image formats if
+    /// stb_image.h is included before this header.
     AlignedUniquePtr load(const void * data, size_t size);
 
-    /// @brief Save the image plane to .ril stream.
+    /// @brief Save the image to stream in JPG format. This method requires stb_image_write.h to be included before this header.
+    void saveToJPG(std::ostream & stream, const void * pixels) const;
+
+    /// @brief Save the image to stream in PNG format. This method requires stb_image_write.h to be included before this header.
+    void saveToPNG(std::ostream & stream, const void * pixels) const;
+
+    /// @brief Save the image to .ril stream.
     /// RIL stands for (Rapid Image Library). This is the image file format specific to this library.
     void saveToRIL(std::ostream & stream, const void * pixels) const;
 
-    /// Save the image plane as .dds file.
+    /// Save the image as .dds file.
     void saveToDDS(std::ostream & stream, const void * pixels) const;
 
-    /// A general save function. Use extension to determine file format. Currently only support .ril and .dds file.
+    /// Save image to file. Use extension to determine file format.
     void save(const std::string & filename, const void * pixels) const;
 
     bool operator==(const ImageDesc & rhs) const {
