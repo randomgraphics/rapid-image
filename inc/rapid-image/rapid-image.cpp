@@ -1098,11 +1098,11 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromDDS(std::istream & stream) {
 
     // check miplevel information
     bool     hasMipmap = (DDS_DDSD_MIPMAPCOUNT & header.flags) && (DDS_CAPS_MIPMAP & header.caps) && (DDS_CAPS_COMPLEX & header.caps);
-    uint32_t levels    = hasMipmap ? header.mipCount : 1;
-    if (0 == levels) levels = 1;
+    uint32_t mipLevels = hasMipmap ? header.mipCount : 1;
+    if (0 == mipLevels) mipLevels = 1;
 
     // Now we have everything we need to create the image descriptor. Note that DDS image's pixel data is always aligned to 4 bytes.
-    auto desc = ImageDesc::make(PlaneDesc::make(format, {width, height, depth}), faces, levels, ImageDesc::FACE_MAJOR, 4);
+    auto desc = ImageDesc::make(PlaneDesc::make(format, {width, height, depth}), faces, mipLevels, ImageDesc::FACE_MAJOR, 4);
     RII_ASSERT(desc.valid());
 
     // Read pixel data
@@ -1348,9 +1348,9 @@ ImageDesc::AlignedUniquePtr ImageDesc::load(std::istream & stream) {
     {
         stream.seekg(begin, std::ios::beg);
         stbi_io_callbacks io = {};
-        io.read              = [](void * user, char * data, int size) -> int {
+        io.read              = [](void * user, char * data, int size_) -> int {
             auto fp = (std::istream *) user;
-            fp->read(data, size);
+            fp->read(data, size_);
             return (int) fp->gcount();
         };
         io.skip = [](void * user, int n) {
@@ -1402,7 +1402,7 @@ ImageDesc::AlignedUniquePtr ImageDesc::load(const void * data_, size_t size_) {
 //
 void ImageDesc::save(const std::string & filename, const void * pixels) const {
     // lambda to open file stream
-    auto openFileStream = [](const std::string & filename) -> std::ofstream {
+    auto openFileStream = [&]() -> std::ofstream {
         std::ofstream file(filename, std::ios::binary);
         if (!file) {
             RAPID_IMAGE_LOGE("failed to open file %s for writing.", filename.c_str());
@@ -1415,11 +1415,11 @@ void ImageDesc::save(const std::string & filename, const void * pixels) const {
     auto ext = std::filesystem::path(filename).extension().string();
     std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) { return (char) tolower(c); });
     if (".ril" == ext) {
-        auto file = openFileStream(filename);
+        auto file = openFileStream();
         if (!file) return;
         saveToRIL(file, pixels);
     } else if (".dds" == ext) {
-        auto file = openFileStream(filename);
+        auto file = openFileStream();
         if (!file) return;
         saveToDDS(file, pixels);
     } else {

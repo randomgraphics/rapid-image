@@ -1600,20 +1600,20 @@ template<>
 struct hash<RAPID_IMAGE_NAMESPACE::PlaneDesc> {
     size_t operator()(const RAPID_IMAGE_NAMESPACE::PlaneDesc & key) const {
         // Records the calculated hash of the texture handle.
-        size_t hash = 7;
+        size_t h = 7;
 
         // Hash the members.
-        hash = 79 * hash + (size_t) key.format;
-        hash = 79 * hash + (size_t) key.extent.w;
-        hash = 79 * hash + (size_t) key.extent.h;
-        hash = 79 * hash + (size_t) key.extent.d;
-        hash = 79 * hash + (size_t) key.step;
-        hash = 79 * hash + (size_t) key.pitch;
-        hash = 79 * hash + (size_t) key.slice;
-        hash = 79 * hash + (size_t) key.size;
-        hash = 79 * hash + (size_t) key.offset;
+        h = 79 * h + (size_t) key.format;
+        h = 79 * h + (size_t) key.extent.w;
+        h = 79 * h + (size_t) key.extent.h;
+        h = 79 * h + (size_t) key.extent.d;
+        h = 79 * h + (size_t) key.step;
+        h = 79 * h + (size_t) key.pitch;
+        h = 79 * h + (size_t) key.slice;
+        h = 79 * h + (size_t) key.size;
+        h = 79 * h + (size_t) key.offset;
 
-        return hash;
+        return h;
     }
 };
 
@@ -1622,20 +1622,20 @@ template<>
 struct hash<RAPID_IMAGE_NAMESPACE::ImageDesc> {
     size_t operator()(const RAPID_IMAGE_NAMESPACE::ImageDesc & key) const {
         // Records the calculated hash of the texture handle.
-        size_t hash = 7;
+        size_t h = 7;
 
         // Hash the members.
-        hash = 79 * hash + (size_t) key.layers;
-        hash = 79 * hash + (size_t) key.levels;
-        hash = 79 * hash + (size_t) key.size;
+        h = 79 * h + (size_t) key.layers;
+        h = 79 * h + (size_t) key.levels;
+        h = 79 * h + (size_t) key.size;
 
         /// Allows us to hash the planes.
         std::hash<RAPID_IMAGE_NAMESPACE::PlaneDesc> planeHasher;
 
         // Calculate the hash of the planes.
-        for (const RAPID_IMAGE_NAMESPACE::PlaneDesc & plane : key.planes) { hash = 79 * hash + planeHasher(plane); }
+        for (const RAPID_IMAGE_NAMESPACE::PlaneDesc & plane : key.planes) { h = 79 * h + planeHasher(plane); }
 
-        return hash;
+        return h;
     }
 };
 
