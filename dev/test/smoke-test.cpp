@@ -77,7 +77,7 @@ TEST_CASE("ril-save-load") {
 
     // save to temp file
     std::stringstream ss;
-    img1.saveToRIL(ss);
+    img1.save({ril::ImageDesc::RIL}, ss);
 
     // verify that loading from null string doesn't crash.
     Image::load(nullptr, 1);

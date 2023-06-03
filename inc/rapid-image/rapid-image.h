@@ -1407,28 +1407,50 @@ struct ImageDesc {
     /// stb_image.h is included before this header.
     AlignedUniquePtr load(const void * data, size_t size);
 
-    /// @brief Save the image to stream in JPG format. This method requires stb_image_write.h to be included before this header.
-    void saveToJPG(std::ostream & stream, const void * pixels) const;
+    enum FileFormat {
+        RIL, ///< Rapid Image Library format.
+        DDS, ///< Direct Draw Surface format.
+        JPG, ///< Joint Photographic Experts Group format. Requires stb_image_write.h to be included before this header.
+        PNG, ///< Portable Network Graphics format. Requires stb_image_write.h to be included before this header.
+        BMP, ///< Windows Bitmap format. Requires stb_image_write.h to be included before this header.
+    };
 
-    /// @brief Save the image to stream in PNG format. This method requires stb_image_write.h to be included before this header.
-    void saveToPNG(std::ostream & stream, const void * pixels) const;
+    struct SaveToStreamParameters {
+        /// @brief File format to save the image as.
+        FileFormat format = RIL;
 
-    /// @brief Save the image to .ril stream.
-    /// RIL stands for (Rapid Image Library). This is the image file format specific to this library.
-    void saveToRIL(std::ostream & stream, const void * pixels) const;
+        /// @brief Quality of the compression. Only used for JPG.
+        int quality = 85;
 
-    /// Save the image as .dds file.
-    void saveToDDS(std::ostream & stream, const void * pixels) const;
+        SaveToStreamParameters & setFormat(FileFormat f) {
+            format = f;
+            return *this;
+        }
 
-    /// Save image to file. Use extension to determine file format.
+        SaveToStreamParameters & setQuality(int q) {
+            quality = q;
+            return *this;
+        }
+    };
+
+    /// @brief Save the image to output stream.
+    void save(const SaveToStreamParameters & params, std::ostream & stream, const void * pixels) const;
+
+    /// @brief Save image to file.
+    void save(const SaveToStreamParameters & params, const std::string & filename, const void * pixels) const;
+
+    /// @brief Save image to file. Use extension to determine file format. Use default value for other options.
     void save(const std::string & filename, const void * pixels) const;
 
+    /// @brief equality operator
     bool operator==(const ImageDesc & rhs) const {
         return planes == rhs.planes && layers == rhs.layers && levels == rhs.levels && size == rhs.size && alignment == rhs.alignment;
     }
 
+    /// @brief inequality operator
     bool operator!=(const ImageDesc & rhs) const { return !operator==(rhs); }
 
+    /// @brief less than operator
     bool operator<(const ImageDesc & rhs) const {
         if (layers != rhs.layers) return layers < rhs.layers;
         if (levels != rhs.levels) return levels < rhs.levels;
@@ -1480,11 +1502,8 @@ struct ImageProxy {
     /// return pointer to particular pixel
     uint8_t * pixel(size_t layer, size_t level, size_t x = 0, size_t y = 0, size_t z = 0) { return data + desc.pixel(layer, level, x, y, z); }
 
-    /// Save image to stream in RIL format.
-    void saveToRIL(std::ostream & stream) const { return desc.saveToRIL(stream, data); }
-
-    /// Save image to stream in DDS format.
-    void saveToDDS(std::ostream & stream) const { return desc.saveToDDS(stream, data); }
+    /// Save image to output stream
+    void save(const ImageDesc::SaveToStreamParameters & params, std::ostream & stream) const { return desc.save(params, stream, data); }
 
     /// Save image to file
     void save(const std::string & filename) const { return desc.save(filename, data); }
@@ -1566,11 +1585,8 @@ public:
     /// aware of the memory and performance cost of it.
     Image clone() const { return Image(desc(), data()); }
 
-    /// Save image to stream in RIL format.
-    void saveToRIL(std::ostream & stream) const { return _proxy.saveToRIL(stream); }
-
-    /// Save image to stream in DDS format.
-    void saveToDDS(std::ostream & stream) const { return _proxy.saveToDDS(stream); }
+    /// Save image to stream
+    void save(const ImageDesc::SaveToStreamParameters & params, std::ostream & stream) const { return _proxy.save(params, stream); }
 
     /// Save image to file
     void save(const std::string & filename) const { return _proxy.save(filename); }

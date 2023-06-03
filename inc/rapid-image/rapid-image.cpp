@@ -809,7 +809,11 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromRIL(std::istream & stream) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-void ImageDesc::saveToRIL(std::ostream & stream, const void * pixels) const {
+static void saveToRIL(const ImageDesc & desc, std::ostream & stream, const void * pixels) {
+    if (desc.empty() || !desc.valid()) {
+        RAPID_IMAGE_LOGE("Can't save empty or invalid image.");
+        return;
+    }
     if (!stream) {
         RAPID_IMAGE_LOGE("failed to write image to stream: stream is not good.");
         return;
@@ -819,7 +823,7 @@ void ImageDesc::saveToRIL(std::ostream & stream, const void * pixels) const {
         return;
     }
 
-    auto planeArraySize = planes.size() * sizeof(PlaneDesc);
+    auto planeArraySize = desc.planes.size() * sizeof(PlaneDesc);
 
     // write file tag
     RILFileTag tag(1);
@@ -827,17 +831,17 @@ void ImageDesc::saveToRIL(std::ostream & stream, const void * pixels) const {
 
     // write file header
     RILHeaderV1 header;
-    header.size      = size;
-    header.layers    = layers;
-    header.levels    = levels;
-    header.alignment = alignment;
+    header.size      = desc.size;
+    header.layers    = desc.layers;
+    header.levels    = desc.levels;
+    header.alignment = desc.alignment;
     stream.write((const char *) &header, sizeof(header));
 
     // write plane array
-    stream.write((const char *) planes.data(), (std::streamsize) planeArraySize);
+    stream.write((const char *) desc.planes.data(), (std::streamsize) planeArraySize);
 
     // write pixel array
-    stream.write((const char *) pixels, (std::streamsize) size);
+    stream.write((const char *) pixels, (std::streamsize) desc.size);
 }
 
 // *********************************************************************************************************************
@@ -1123,7 +1127,7 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromDDS(std::istream & stream) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-void ImageDesc::saveToDDS(std::ostream &, const void *) const {
+static void saveToDDS(const ImageDesc &, std::ostream &, const void *) {
     //
     RII_REQUIRE(false, "not implemented yet.");
 }
@@ -1400,6 +1404,47 @@ ImageDesc::AlignedUniquePtr ImageDesc::load(const void * data_, size_t size_) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
+void ImageDesc::save(const SaveToStreamParameters & params, std::ostream & stream, const void * pixels) const {
+    switch (params.format) {
+    case RIL:
+        saveToRIL(*this, stream, pixels);
+        break;
+    case DDS:
+        saveToDDS(*this, stream, pixels);
+        break;
+    case PNG:
+    case JPG:
+    case BMP: {
+        if (layers > 1 || levels > 1) {
+            RAPID_IMAGE_LOGE("Can't save images with multiple layers and/or mipmaps to PNG/JPG/BMP format.");
+            return;
+        }
+#ifdef INCLUDE_STB_IMAGE_WRITE_H
+        stbi_write_func * write = [](void * context, void * data, int size_) {
+            auto fp = (std::ofstream *) context;
+            fp->write((const char *) data, size_);
+        };
+        if (PNG == params.format)
+            stbi_write_png_to_func(write, &stream, (int) width(), (int) height(), 4, pixels, 0);
+        else if (JPG == params.format)
+            stbi_write_jpg_to_func(write, &stream, (int) width(), (int) height(), 4, pixels, 0);
+        else if (BMP == params.format)
+            stbi_write_bmp_to_func(write, &stream, (int) width(), (int) height(), 4, pixels);
+        else
+            RII_ASSERT(false);
+#else
+        RAPID_IMAGE_LOGE("Saving to PNG/JPG/BMP format requires stb_image_write.h being included before rapid-image.h");
+#endif
+        break;
+    }
+    default:
+        RAPID_IMAGE_LOGE("failed to save image to stream: unknown format %d", params.format);
+        break;
+    }
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+//
 void ImageDesc::save(const std::string & filename, const void * pixels) const {
     // lambda to open file stream
     auto openFileStream = [&]() -> std::ofstream {
@@ -1417,11 +1462,26 @@ void ImageDesc::save(const std::string & filename, const void * pixels) const {
     if (".ril" == ext) {
         auto file = openFileStream();
         if (!file) return;
-        saveToRIL(file, pixels);
+        save({RIL}, file, pixels);
     } else if (".dds" == ext) {
         auto file = openFileStream();
         if (!file) return;
-        saveToDDS(file, pixels);
+        save({DDS}, file, pixels);
+    } else if (".png" == ext || ".jpg" == ext || ".jpeg" == ext || ".bmp" == ext) {
+#ifdef INCLUDE_STB_IMAGE_WRITE_H
+        auto file = openFileStream();
+        if (!file) return;
+        if (".png" == ext)
+            save({PNG}, file, pixels);
+        else if (".jpg" == ext || ".jpeg" == ext)
+            save({JPG}, file, pixels);
+        else if ("bmp" == ext)
+            save({BMP}, file, pixels);
+        else
+            RII_ASSERT(false);
+#else
+        RAPID_IMAGE_LOGE("Saving to PNG/JPG/BMP format requires stb_image_write.h being included before rapid-image.h");
+#endif
     } else {
         RAPID_IMAGE_LOGE("Unsupported file extension: %s", ext.c_str());
     }
