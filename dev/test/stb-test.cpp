@@ -6,6 +6,7 @@
 #ifdef _MSC_VER
 #pragma warning(disable : 4244) // conversion from 'int' to 'char', possible loss of data
 #endif
+#define _CRT_SECURE_NO_WARNINGS
 #define STB_IMAGE_IMPLEMENTATION
 #include "../3rd-party/stb/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -31,5 +32,6 @@ TEST_CASE("stb-save-load") {
     auto image2 = ril::Image::load(str.data(), str.size());
 
     // make sure the image2 is the same as image1;
-    REQUIRE(image2.desc() == image2.desc());
+    REQUIRE(image1.desc() == image2.desc());
+    REQUIRE(0 == memcmp(image1.data(), image2.data(), image1.size()));
 }
