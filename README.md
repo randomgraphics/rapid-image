@@ -22,7 +22,7 @@ Here's how you integrate it with your project:
 #include <rapid-image/rapid-image.h>
 
 // in one of your source files:
-#define RAPID_VULKAN_IMPLEMENTATION
+#define RAPID_IMAGE_IMPLEMENTATION
 #include <rapid-image/rapid-image.h>
 ```
 
@@ -76,7 +76,7 @@ To support other commonly seen image formats, like .PNG, .JPG and .BMP. You'll n
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../3rd-party/stb/stb_image_write.h"
 
-#define RAPID_VULKAN_IMPLEMENTATION
+#define RAPID_IMAGE_IMPLEMENTATION
 #include <rapid-image/rapid-image.h>
 ```
 
