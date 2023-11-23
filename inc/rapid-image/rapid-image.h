@@ -42,7 +42,7 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 1
+#define RAPID_IMAGE_HEADER_REVISION 2
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
@@ -109,7 +109,7 @@ SOFTWARE.
 #ifndef RAPID_IMAGE_ASSERT
 #define RAPID_IMAGE_ASSERT(expression, ...)                                                          \
     if (!(expression)) {                                                                             \
-        auto rapidImageAssertMessage_ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);                  \
+        auto rapidImageAssertMessage_ = RAPID_IMAGE_NAMESPACE::rii_details::format(__VA_ARGS__);     \
         RAPID_IMAGE_LOGE("Condition %s not met. %s", #expression, rapidImageAssertMessage_.c_str()); \
         assert(false);                                                                               \
     } else                                                                                           \
@@ -159,7 +159,7 @@ SOFTWARE.
 #define RII_THROW(...)                                                                                            \
     do {                                                                                                          \
         std::stringstream riiThrowStrStream_;                                                                     \
-        riiThrowStrStream_ << __FILE__ << "(" << __LINE__ << "): " << RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__); \
+        riiThrowStrStream_ << __FILE__ << "(" << __LINE__ << "): " << RAPID_IMAGE_NAMESPACE::rii_details::format(__VA_ARGS__); \
         RAPID_IMAGE_LOGE("%s", riiThrowStrStream_.str().data());                                                  \
         RAPID_IMAGE_THROW(riiThrowStrStream_.str());                                                              \
     } while (false)
@@ -174,7 +174,7 @@ SOFTWARE.
 #define RII_REQUIRE(condition, ...)                                                             \
     do {                                                                                        \
         if (!(condition)) {                                                                     \
-            auto riiRequireErrorMessage_ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);          \
+            auto riiRequireErrorMessage_ = RAPID_IMAGE_NAMESPACE::rii_details::format(__VA_ARGS__); \
             RII_THROW("Condition " #condition " not met: %s", riiRequireErrorMessage_.c_str()); \
         }                                                                                       \
     } while (false)
@@ -186,36 +186,16 @@ namespace RAPID_IMAGE_NAMESPACE {
 
 using namespace std::string_literals;
 
+
+namespace rii_details {
+
 // ---------------------------------------------------------------------------------------------------------------------
 /// \def format
 /// \brief A printf like string formatting function.
 #if __clang__
 __attribute__((format(printf, 1, 2)))
 #endif
-inline std::string
-format(const char * format, ...) {
-    va_list args;
-
-    // Get the size of the buffer needed to store the formatted string.
-    va_start(args, format);
-    int size = vsnprintf(nullptr, 0, format, args);
-    va_end(args);
-    if (size == -1) {
-        // Error getting the size of the buffer.
-        return {};
-    }
-
-    // Allocate the buffer.
-    std::string buffer((size_t) (size + 1), '\0');
-
-    // Format the string.
-    va_start(args, format);
-    vsnprintf(&buffer[0], (size_t) (size + 1), format, args);
-    va_end(args);
-
-    // Return the formatted string.
-    return buffer;
-}
+std::string format(const char * format, ...);
 
 /// Overload of format() function for empty parameter list.
 inline std::string format() { return ""s; }
@@ -228,6 +208,8 @@ void * aalloc(size_t a, size_t s);
 // ---------------------------------------------------------------------------------------------------------------------
 // \brief Free memory allocated by aalloc().
 void afree(void * p);
+
+}
 
 // ---------------------------------------------------------------------------------------------------------------------
 /// @brief A convenience class that we use to hold one uncompressed pixel of any format
@@ -1406,7 +1388,7 @@ struct ImageDesc {
     }
 
     struct AlignedDeleter {
-        void operator()(void * p) const { afree(p); }
+        void operator()(void * p) const { rii_details::afree(p); }
     };
     using AlignedUniquePtr = std::unique_ptr<uint8_t, AlignedDeleter>;
 

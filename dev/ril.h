@@ -10,14 +10,14 @@
 
 #define RAPID_IMAGE_LOGE(...)                                                                            \
     do {                                                                                                 \
-        auto message_ = ril::format("[ ERROR ] (#%d) %s\n", __LINE__, ril::format(__VA_ARGS__).c_str()); \
+        auto message_ = ril::rii_details::format("[ ERROR ] (#%d) %s\n", __LINE__, ril::rii_details::format(__VA_ARGS__).c_str()); \
         fprintf(stderr, "%s", message_.c_str());                                                         \
         WRITE_TO_DEBUGGER(message_.c_str());                                                             \
     } while (false)
 
 #define RAPID_IMAGE_LOGW(...)                                                                            \
     do {                                                                                                 \
-        auto message_ = ril::format("[WARNING] (#%d) %s\n", __LINE__, ril::format(__VA_ARGS__).c_str()); \
+        auto message_ = ril::rii_details::format("[WARNING] (#%d) %s\n", __LINE__, ril::rii_details::format(__VA_ARGS__).c_str()); \
         fprintf(stderr, "%s", message_.c_str());                                                         \
         WRITE_TO_DEBUGGER(message_.c_str());                                                             \
     } while (false)

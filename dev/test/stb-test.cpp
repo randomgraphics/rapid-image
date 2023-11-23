@@ -2,6 +2,7 @@
 #ifdef __GNUC__
 #pragma GCC diagnostic ignored "-Wconversion"
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations" // sprintf() is deprecaited
 #endif
 #ifdef _MSC_VER
 #pragma warning(disable : 4244) // conversion from 'int' to 'char', possible loss of data

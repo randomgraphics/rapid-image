@@ -1,3 +1,27 @@
+/*
+MIT License
+
+Copyright (c) 2023 randomgraphics
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
 #undef RAPID_IMAGE_IMPLEMENTATION
 #include "rapid-image.h"
 
@@ -17,6 +41,32 @@ constexpr PixelFormat::LayoutDesc PixelFormat::LAYOUTS[];
 // Utilty functions
 // *********************************************************************************************************************
 
+namespace rii_details {
+
+std::string format(const char * format, ...) {
+    va_list args;
+
+    // Get the size of the buffer needed to store the formatted string.
+    va_start(args, format);
+    int size = vsnprintf(nullptr, 0, format, args);
+    va_end(args);
+    if (size == -1) {
+        // Error getting the size of the buffer.
+        return {};
+    }
+
+    // Allocate the buffer.
+    std::string buffer((size_t) (size + 1), '\0');
+
+    // Format the string.
+    va_start(args, format);
+    vsnprintf(&buffer[0], (size_t) (size + 1), format, args);
+    va_end(args);
+
+    // Return the formatted string.
+    return buffer;
+}
+
 void * aalloc(size_t a, size_t s) {
 #ifdef _WIN32
     return _aligned_malloc(s, a);
@@ -31,6 +81,8 @@ void afree(void * p) {
 #else
     ::free(p);
 #endif
+}
+
 }
 
 // *********************************************************************************************************************
@@ -791,7 +843,7 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromRIL(std::istream & stream) {
             return {};
         }
         // read pixel array
-        auto pixels = AlignedUniquePtr((uint8_t *) aalloc(header.alignment, desc.size));
+        auto pixels = AlignedUniquePtr((uint8_t *) rii_details::aalloc(header.alignment, desc.size));
         if (!checkedRead(stream, "read pixels", pixels.get(), desc.size)) return {};
         // done
         *this = std::move(desc);
@@ -1105,7 +1157,7 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromDDS(std::istream & stream) {
     RII_ASSERT(desc.valid());
 
     // Read pixel data
-    auto pixels = AlignedUniquePtr((uint8_t *) aalloc(desc.alignment, desc.size));
+    auto pixels = AlignedUniquePtr((uint8_t *) rii_details::aalloc(desc.alignment, desc.size));
     if (!checkedRead(stream, "read pixels", pixels.get(), desc.size)) return {};
 
     // bgr -> rgb
@@ -1367,7 +1419,7 @@ ImageDesc::AlignedUniquePtr ImageDesc::load(std::istream & stream) {
             RII_ASSERT(desc.valid());
 
             // copy pixel data to memory aligned buffer
-            auto pixels = AlignedUniquePtr((uint8_t *) aalloc(desc.alignment, desc.size));
+            auto pixels = AlignedUniquePtr((uint8_t *) rii_details::aalloc(desc.alignment, desc.size));
             memcpy(pixels.get(), data, desc.size);
             stbi_image_free(data);
 
@@ -1503,7 +1555,7 @@ Image::Image(const ImageDesc & desc, const void * initialContent, size_t initial
 // ---------------------------------------------------------------------------------------------------------------------
 //
 void Image::clear() {
-    afree(_proxy.data);
+    rii_details::afree(_proxy.data);
     _proxy.data = nullptr;
     _proxy.desc = {};
     RII_ASSERT(empty());
@@ -1513,7 +1565,7 @@ void Image::clear() {
 //
 void Image::construct(const void * initialContent, size_t initialContentSizeInbytes) {
     // clear old image data.
-    afree(_proxy.data);
+    rii_details::afree(_proxy.data);
     _proxy.data = nullptr;
 
     // deal with empty image
@@ -1527,7 +1579,7 @@ void Image::construct(const void * initialContent, size_t initialContentSizeInby
 
     // (re)allocate pixel buffer
     size_t imageSize = size();
-    _proxy.data      = (uint8_t *) aalloc(_proxy.desc.alignment, imageSize);
+    _proxy.data      = (uint8_t *) rii_details::aalloc(_proxy.desc.alignment, imageSize);
     if (!_proxy.data) {
         RAPID_IMAGE_LOGE("failed to construct image: out of memory.");
         return;

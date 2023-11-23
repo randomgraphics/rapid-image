@@ -39,7 +39,7 @@ def update_submodules():
             utils.rip(f"{dir} not found. your working directory might be corrupted. Please consider re-cloning.")
         items = dir.iterdir()
         if len(list(items)) == 0 :
-            git("submodule update --init")
+            git("submodule update --init --recursive")
             break
 
 def get_android_path(name):
@@ -78,7 +78,7 @@ def cmake_config(args, build_dir, build_type):
             -DCMAKE_ANDROID_ARCH_ABI={android_abi} \
             "
     elif 'nt' != os.name:
-        if not args.use_gcc: config += " -DCMAKE_C_COMPILER=clang-14 -DCMAKE_CXX_COMPILER=clang++-14"
+        if not args.use_gcc: config += " -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++"
         config += " -GNinja"
     cmake(build_dir, config)
 
