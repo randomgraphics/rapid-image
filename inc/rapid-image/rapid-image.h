@@ -599,8 +599,8 @@ union PixelFormat {
         SIGN_SRGB = SIGN_GNORM,
         SIGN_UINT,  ///< unsigned integer
         SIGN_SINT,  ///< signed integer
-        SIGN_GINT,  ///< gamma integer
         SIGN_BINT,  ///< bias integer
+        SIGN_GINT,  ///< gamma integer
         SIGN_FLOAT, ///< signed floating pointer
     };
 
@@ -716,6 +716,9 @@ union PixelFormat {
 
     /// @brief Store uncompressed pixel value to float4.
     Float4 storeToFloat4(const void *) const;
+
+    /// convert to string
+    std::string toString() const;
 
     // /// @brief Convert PixelFormat to DXGI_FORMAT
     // uint32_t toDXGIFormat() const;
