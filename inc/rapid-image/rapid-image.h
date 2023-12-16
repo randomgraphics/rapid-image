@@ -42,7 +42,7 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 2
+#define RAPID_IMAGE_HEADER_REVISION 3
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
@@ -156,12 +156,12 @@ SOFTWARE.
 
 #define RII_STR_HELPER(x) #x
 
-#define RII_THROW(...)                                                                                            \
-    do {                                                                                                          \
-        std::stringstream riiThrowStrStream_;                                                                     \
+#define RII_THROW(...)                                                                                                         \
+    do {                                                                                                                       \
+        std::stringstream riiThrowStrStream_;                                                                                  \
         riiThrowStrStream_ << __FILE__ << "(" << __LINE__ << "): " << RAPID_IMAGE_NAMESPACE::rii_details::format(__VA_ARGS__); \
-        RAPID_IMAGE_LOGE("%s", riiThrowStrStream_.str().data());                                                  \
-        RAPID_IMAGE_THROW(riiThrowStrStream_.str());                                                              \
+        RAPID_IMAGE_LOGE("%s", riiThrowStrStream_.str().data());                                                               \
+        RAPID_IMAGE_THROW(riiThrowStrStream_.str());                                                                           \
     } while (false)
 
 #if RAPID_IMAGE_ENABLE_DEBUG_BUILD
@@ -171,12 +171,12 @@ SOFTWARE.
 #define RII_ASSERT(...) ((void) 0)
 #endif
 
-#define RII_REQUIRE(condition, ...)                                                             \
-    do {                                                                                        \
-        if (!(condition)) {                                                                     \
+#define RII_REQUIRE(condition, ...)                                                                 \
+    do {                                                                                            \
+        if (!(condition)) {                                                                         \
             auto riiRequireErrorMessage_ = RAPID_IMAGE_NAMESPACE::rii_details::format(__VA_ARGS__); \
-            RII_THROW("Condition " #condition " not met: %s", riiRequireErrorMessage_.c_str()); \
-        }                                                                                       \
+            RII_THROW("Condition " #condition " not met: %s", riiRequireErrorMessage_.c_str());     \
+        }                                                                                           \
     } while (false)
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -186,7 +186,6 @@ namespace RAPID_IMAGE_NAMESPACE {
 
 using namespace std::string_literals;
 
-
 namespace rii_details {
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -195,7 +194,8 @@ namespace rii_details {
 #if __clang__
 __attribute__((format(printf, 1, 2)))
 #endif
-std::string format(const char * format, ...);
+std::string
+format(const char * format, ...);
 
 /// Overload of format() function for empty parameter list.
 inline std::string format() { return ""s; }
@@ -209,7 +209,7 @@ void * aalloc(size_t a, size_t s);
 // \brief Free memory allocated by aalloc().
 void afree(void * p);
 
-}
+} // namespace rii_details
 
 // ---------------------------------------------------------------------------------------------------------------------
 /// @brief A convenience class that we use to hold one uncompressed pixel of any format
@@ -701,15 +701,14 @@ union PixelFormat {
     /// @param channel Index of the channel we want the value for. Must be in range of [0, 3].
     float getPixelChannelFloat(const void * pixel, size_t channel);
 
-    ///
-    /// get layout descriptor
-    ///
+    /// @brief get layout descriptor
     constexpr const LayoutDesc & layoutDesc() const { return LAYOUTS[layout]; }
 
-    ///
-    /// Get bytes-per-pixel-block
-    ///
+    /// @brief Get bytes per pixel block
     constexpr uint8_t bytesPerBlock() const { return LAYOUTS[layout].blockBytes; }
+
+    /// @brief Get bits per pixel. This could be less than 1 byte for compressed formats.
+    constexpr uint8_t bitsPerPixel() const { return LAYOUTS[layout].blockBytes * 8 / LAYOUTS[layout].blockWidth * LAYOUTS[layout].blockHeight; }
 
     /// @brief Load uncompressed pixel value from float4. Do not support compressed format.
     OnePixel loadFromFloat4(const Float4 &) const;
@@ -717,30 +716,42 @@ union PixelFormat {
     /// @brief Store uncompressed pixel value to float4.
     Float4 storeToFloat4(const void *) const;
 
-    /// convert to string
+    /// @brief convert to string
     std::string toString() const;
 
-    // /// @brief Convert PixelFormat to DXGI_FORMAT
-    // uint32_t toDXGIFormat() const;
+    /// @brief Tuple of opengl format definition.
+    struct OpenGLFormat {
+        /// \brief The internal format specifier. See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml.
+        /// The value of 0 means the format is unknown. In this case, the other fields are undefined.
+        int internal = 0;
 
-    ///
-    /// convert to bool
-    ///
+        /// @brief The format of the pixel data.
+        unsigned int format = 0;
+
+        /// @brief The data type of the pixel data.
+        unsigned int type = 0;
+
+        bool isUnknow() const { return internal == 0; }
+
+        operator bool() const { return !isUnknow(); }
+    };
+
+    /// @brief Convert to OpenGL format color format
+    OpenGLFormat toOpenGL() const;
+
+    /// @brief Convert to DXGI_FORMAT
+    uint32_t toDXGI() const;
+
+    /// @brief convert to bool
     constexpr operator bool() const { return !empty(); }
 
-    ///
-    /// equality check
-    ///
+    /// @brief equality check
     constexpr bool operator==(const PixelFormat & c) const { return u32 == c.u32; }
 
-    ///
-    /// equality check
-    ///
+    /// @brief equality check
     constexpr bool operator!=(const PixelFormat & c) const { return u32 != c.u32; }
 
-    ///
-    /// less operator
-    ///
+    /// @brief less operator
     constexpr bool operator<(const PixelFormat & c) const { return u32 < c.u32; }
 
     // clang-format off
@@ -916,6 +927,7 @@ union PixelFormat {
     static constexpr PixelFormat DXT5_UNORM()                  { return make(LAYOUT_DXT5, SIGN_UNORM, SWIZZLE_XY00); }
     static constexpr PixelFormat DXT5_SNORM()                  { return make(LAYOUT_DXT5, SIGN_SNORM, SWIZZLE_XY00); }
     static constexpr PixelFormat DXT5_UINT()                   { return make(LAYOUT_DXT5, SIGN_UINT,  SWIZZLE_XY00); }
+    static constexpr PixelFormat DXT5_SRGB()                   { return make(LAYOUT_DXT5, SIGN_SRGB,  SWIZZLE_XY00); }
 
     static constexpr PixelFormat DXT5A_UNORM()                 { return make(LAYOUT_DXT5A, SIGN_UNORM, SWIZZLE_XYZW); }
     static constexpr PixelFormat DXT5A_SNORM()                 { return make(LAYOUT_DXT5A, SIGN_SNORM, SWIZZLE_XYZW); }
