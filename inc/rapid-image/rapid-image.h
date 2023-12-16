@@ -50,6 +50,13 @@ SOFTWARE.
 #define RAPID_IMAGE_NAMESPACE ril
 #endif
 
+/// \def RAPID_IMAGE_SHARED_LIB
+/// Set to non-zero value to build rapid-image as shared library. Disabled by default.
+/// \note this is experimental and not well tested.
+#ifndef RAPID_IMAGE_SHARED_LIB
+#define RAPID_IMAGE_SHARED_LIB 0
+#endif
+
 /// \def RAPID_IMAGE_ENABLE_DEBUG_BUILD
 /// Set to non-zero value to enable debug build. Disabled by default.
 #ifndef RAPID_IMAGE_ENABLE_DEBUG_BUILD
@@ -142,6 +149,20 @@ SOFTWARE.
 #define RII_BIG_ENDIAN    0
 #endif
 
+#if RAPID_IMAGE_SHARED_LIB
+#if defined(_WIN32)
+#if defined(RAPID_IMAGE_EXPORTS)
+#define RII_API __declspec(dllexport)
+#else
+#define RII_API __declspec(dllimport)
+#endif
+#else
+#define RII_API __attribute__((visibility("default")))
+#endif
+#else
+#define RII_API
+#endif
+
 #define RII_NO_COPY(T)                 \
     T(const T &)             = delete; \
     T & operator=(const T &) = delete
@@ -194,7 +215,7 @@ namespace rii_details {
 #if __clang__
 __attribute__((format(printf, 1, 2)))
 #endif
-std::string
+RII_API std::string
 format(const char * format, ...);
 
 /// Overload of format() function for empty parameter list.
@@ -203,11 +224,11 @@ inline std::string format() { return ""s; }
 // ---------------------------------------------------------------------------------------------------------------------
 /// \brief Allocate aligned memory. The memory must be freed with afree(). Calling free() on the returned pointer
 /// will cause undefined behavior.
-void * aalloc(size_t a, size_t s);
+RII_API void * aalloc(size_t a, size_t s);
 
 // ---------------------------------------------------------------------------------------------------------------------
 // \brief Free memory allocated by aalloc().
-void afree(void * p);
+RII_API void afree(void * p);
 
 } // namespace rii_details
 
@@ -380,7 +401,7 @@ static_assert(sizeof(Float4) == 128 / 8, "");
 
 // ---------------------------------------------------------------------------------------------------------------------
 /// @brief Pixel format structure
-union PixelFormat {
+union RII_API PixelFormat {
     struct {
 #if RII_LITTLE_ENDIAN
         /// @brief Defines pixel layout. See \ref Layout for details.
@@ -675,7 +696,7 @@ union PixelFormat {
     static constexpr PixelFormat make(Layout l, Sign si0123, Swizzle4 sw0123) { return make(l, si0123, si0123, si0123, sw0123); }
 
     /// @brief Construct pixel format from DXGI_FORMAT enum
-    static PixelFormat makeFromDXGIFormat(uint32_t);
+    static PixelFormat fromDXGI(uint32_t);
 
     /// @brief Check if the pixel format is empty.
     constexpr bool empty() const { return 0 == layout; }
@@ -1112,7 +1133,7 @@ struct Extent3D {
 
 /// This represents a single 1D/2D/3D image plan. This is the building block of more complex image structures like
 /// cube/array images, mipmap chains and etc.
-struct PlaneDesc {
+struct RII_API PlaneDesc {
     /// pixel format
     PixelFormat format = PixelFormat::UNKNOWN();
 
@@ -1227,7 +1248,7 @@ struct PlaneDesc {
 ///
 /// Represent a complex image with optional mipmap chain
 ///
-struct ImageDesc {
+struct RII_API ImageDesc {
     /// Default alignment requirement for each plane. We set it to 16 bytes to be compatible with SSE instructions.
     inline static constexpr uint32_t DEFAULT_ALIGNMENT = 16;
 
@@ -1520,7 +1541,7 @@ struct ImageProxy {
 };
 
 /// @brief The image class of rapid-image library.
-class Image {
+class RII_API Image {
 public:
     /// \name ctor/dtor/copy/move
     //@{
