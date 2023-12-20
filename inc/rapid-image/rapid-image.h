@@ -57,6 +57,13 @@ SOFTWARE.
 #define RAPID_IMAGE_SHARED_LIB 0
 #endif
 
+/// \def RAPID_IMAGE_EXPORTS
+/// \brief Set to non-zero value to export symbols from shared library. Disabled by default.
+/// This macro has effect only when RAPID_IMAGE_SHARED_LIB is enabled (non-zero).
+#ifndef RAPID_IMAGE_EXPORTS
+#define RAPID_IMAGE_EXPORTS 0
+#endif
+
 /// \def RAPID_IMAGE_ENABLE_DEBUG_BUILD
 /// Set to non-zero value to enable debug build. Disabled by default.
 #ifndef RAPID_IMAGE_ENABLE_DEBUG_BUILD
@@ -151,7 +158,7 @@ SOFTWARE.
 
 #if RAPID_IMAGE_SHARED_LIB
 #ifdef _WIN32
-#ifdef RAPID_IMAGE_EXPORTS
+#if RAPID_IMAGE_EXPORTS
 #define RII_API __declspec(dllexport)
 #else
 #define RII_API __declspec(dllimport)
