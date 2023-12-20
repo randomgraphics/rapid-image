@@ -22,8 +22,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#undef RAPID_IMAGE_IMPLEMENTATION
-#include "rapid-image.h"
+#ifndef RAPID_IMAGE_H_
+#error "This file should not be included directly. Include rapid-image.h instead."
+#endif
 
 #include <numeric>
 #include <cstring>
@@ -43,7 +44,7 @@ constexpr PixelFormat::LayoutDesc PixelFormat::LAYOUTS[];
 
 namespace rii_details {
 
-std::string format(const char * format, ...) {
+RII_API std::string format(const char * format, ...) {
     va_list args;
 
     // Get the size of the buffer needed to store the formatted string.
@@ -67,7 +68,7 @@ std::string format(const char * format, ...) {
     return buffer;
 }
 
-void * aalloc(size_t a, size_t s) {
+RII_API void * aalloc(size_t a, size_t s) {
 #ifdef _WIN32
     return _aligned_malloc(s, a);
 #else
@@ -75,7 +76,7 @@ void * aalloc(size_t a, size_t s) {
 #endif
 }
 
-void afree(void * p) {
+RII_API void afree(void * p) {
 #ifdef _WIN32
     _aligned_free(p);
 #else
@@ -257,7 +258,7 @@ static inline PixelFormat::Sign getSign(const PixelFormat & format, size_t chann
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-OnePixel PixelFormat::loadFromFloat4(const Float4 & pixel) const {
+RII_API OnePixel PixelFormat::loadFromFloat4(const Float4 & pixel) const {
     const PixelFormat::LayoutDesc & ld = layoutDesc();
 
     RII_ASSERT(1 == ld.blockWidth && 1 == ld.blockHeight); // do not support compressed format.
@@ -302,7 +303,7 @@ OnePixel PixelFormat::loadFromFloat4(const Float4 & pixel) const {
 
 // ---------------------------------------------------------------------------------------------------------------------
 /// Convert pixel of arbitrary format to float4. Do not support compressed format.
-Float4 PixelFormat::storeToFloat4(const void * pixel) const {
+RII_API Float4 PixelFormat::storeToFloat4(const void * pixel) const {
     const PixelFormat::LayoutDesc & ld = layoutDesc();
 
     RII_ASSERT(1 == ld.blockWidth && 1 == ld.blockHeight); // do not support compressed format.
@@ -346,7 +347,7 @@ static inline PixelFormat::Swizzle getSwizzledChannel(const PixelFormat & format
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-float PixelFormat::getPixelChannelFloat(const void * pixel, size_t channel) {
+RII_API float PixelFormat::getPixelChannelFloat(const void * pixel, size_t channel) {
     // get swizzle of the channel.
     auto swizzle = getSwizzledChannel(*this, channel);
     if (swizzle == PixelFormat::SWIZZLE_0) { return 0.0f; }
@@ -461,7 +462,7 @@ static_assert(std::size(DXGI_FORMATS) == 89);
 //
 //
 // ---------------------------------------------------------------------------------------------------------------------
-PixelFormat PixelFormat::fromDXGI(uint32_t dxgiFormat) {
+RII_API PixelFormat PixelFormat::fromDXGI(uint32_t dxgiFormat) {
     PixelFormat result = PixelFormat::UNKNOWN();
     if (dxgiFormat < std::size(DXGI_FORMATS)) { result = DXGI_FORMATS[dxgiFormat]; }
     if (!result.valid()) { RAPID_IMAGE_LOGE("unsupported DXGI format: %u", dxgiFormat); }
@@ -471,7 +472,7 @@ PixelFormat PixelFormat::fromDXGI(uint32_t dxgiFormat) {
 //
 //
 // ---------------------------------------------------------------------------------------------------------------------
-std::string PixelFormat::toString() const {
+RII_API std::string PixelFormat::toString() const {
     struct Local {
         static inline const char * layout2str(size_t layout) {
             static const char * LAYOUT_STRING[] = {
@@ -572,7 +573,7 @@ std::string PixelFormat::toString() const {
 //
 //
 // ---------------------------------------------------------------------------------------------------------------------
-auto PixelFormat::toOpenGL() const -> OpenGLFormat {
+RII_API auto PixelFormat::toOpenGL() const -> OpenGLFormat {
     OpenGLFormat result = {};
 
     constexpr int          INTERNAL_RGB5                = 0x8050; // GL_RGB5
@@ -741,7 +742,7 @@ auto PixelFormat::toOpenGL() const -> OpenGLFormat {
 //
 //
 // ---------------------------------------------------------------------------------------------------------------------
-uint32_t PixelFormat::toDXGI() const {
+RII_API uint32_t PixelFormat::toDXGI() const {
     for(uint32_t i = 0; i < std::size(DXGI_FORMATS); ++i) {
         if (*this == DXGI_FORMATS[i]) { return i; }
     }
@@ -752,7 +753,7 @@ uint32_t PixelFormat::toDXGI() const {
 // PlaneDesc
 // *********************************************************************************************************************
 
-bool PlaneDesc::valid() const {
+RII_API bool PlaneDesc::valid() const {
     // check format
     if (!format.valid()) {
         RAPID_IMAGE_LOGE("invalid format");
@@ -803,7 +804,7 @@ bool PlaneDesc::valid() const {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-PlaneDesc PlaneDesc::make(PixelFormat format, const Extent3D & extent, size_t step, size_t pitch, size_t slice) {
+RII_API PlaneDesc PlaneDesc::make(PixelFormat format, const Extent3D & extent, size_t step, size_t pitch, size_t slice) {
     if (!format.valid()) {
         RAPID_IMAGE_LOGE("invalid color format: 0x%X", format.u32);
         return {};
@@ -868,7 +869,7 @@ PlaneDesc PlaneDesc::make(PixelFormat format, const Extent3D & extent, size_t st
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-std::vector<Float4> PlaneDesc::toFloat4(const void * pixels) const {
+RII_API std::vector<Float4> PlaneDesc::toFloat4(const void * pixels) const {
     if (empty()) {
         RAPID_IMAGE_LOGE("Can't save empty image plane.");
         return {};
@@ -891,7 +892,7 @@ std::vector<Float4> PlaneDesc::toFloat4(const void * pixels) const {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-std::vector<RGBA8> PlaneDesc::toRGBA8(const void * pixels) const {
+RII_API std::vector<RGBA8> PlaneDesc::toRGBA8(const void * pixels) const {
     if (empty()) {
         RAPID_IMAGE_LOGE("Can't save empty image plane.");
         return {};
@@ -924,7 +925,7 @@ std::vector<RGBA8> PlaneDesc::toRGBA8(const void * pixels) const {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-void PlaneDesc::fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void * src) const {
+RII_API void PlaneDesc::fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void * src) const {
     if (empty()) {
         RAPID_IMAGE_LOGE("Can't load data to empty image plane.");
         return;
@@ -951,7 +952,7 @@ void PlaneDesc::fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void *
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-Image PlaneDesc::generateMipmaps(const void * pixels, size_t maxLevels) const {
+RII_API Image PlaneDesc::generateMipmaps(const void * pixels, size_t maxLevels) const {
     struct Local {
         // static int imax(int a, int b) {
         //     if (a > b) return a;

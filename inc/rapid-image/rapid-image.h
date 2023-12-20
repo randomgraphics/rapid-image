@@ -150,16 +150,16 @@ SOFTWARE.
 #endif
 
 #if RAPID_IMAGE_SHARED_LIB
-#if defined(_WIN32)
-#if defined(RAPID_IMAGE_EXPORTS)
+#ifdef _WIN32
+#ifdef RAPID_IMAGE_EXPORTS
 #define RII_API __declspec(dllexport)
 #else
 #define RII_API __declspec(dllimport)
 #endif
-#else
+#else // _WIN32
 #define RII_API __attribute__((visibility("default")))
-#endif
-#else
+#endif // _WIN32
+#else // RAPID_IMAGE_SHARED_LIB
 #define RII_API
 #endif
 
@@ -234,7 +234,7 @@ RII_API void afree(void * p);
 
 // ---------------------------------------------------------------------------------------------------------------------
 /// @brief A convenience class that we use to hold one uncompressed pixel of any format
-union OnePixel {
+union RII_API OnePixel {
     struct {
         uint64_t lo;
         uint64_t hi;
