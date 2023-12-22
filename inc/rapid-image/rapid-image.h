@@ -42,12 +42,26 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 1
+#define RAPID_IMAGE_HEADER_REVISION 3
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
 #ifndef RAPID_IMAGE_NAMESPACE
 #define RAPID_IMAGE_NAMESPACE ril
+#endif
+
+/// \def RAPID_IMAGE_SHARED_LIB
+/// Set to non-zero value to build rapid-image as shared library. Disabled by default.
+/// \note this is experimental and not well tested.
+#ifndef RAPID_IMAGE_SHARED_LIB
+#define RAPID_IMAGE_SHARED_LIB 0
+#endif
+
+/// \def RAPID_IMAGE_EXPORTS
+/// \brief Set to non-zero value to export symbols from shared library. Disabled by default.
+/// This macro has effect only when RAPID_IMAGE_SHARED_LIB is enabled (non-zero).
+#ifndef RAPID_IMAGE_EXPORTS
+#define RAPID_IMAGE_EXPORTS 0
 #endif
 
 /// \def RAPID_IMAGE_ENABLE_DEBUG_BUILD
@@ -109,7 +123,7 @@ SOFTWARE.
 #ifndef RAPID_IMAGE_ASSERT
 #define RAPID_IMAGE_ASSERT(expression, ...)                                                          \
     if (!(expression)) {                                                                             \
-        auto rapidImageAssertMessage_ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);                  \
+        auto rapidImageAssertMessage_ = RAPID_IMAGE_NAMESPACE::rii_details::format(__VA_ARGS__);     \
         RAPID_IMAGE_LOGE("Condition %s not met. %s", #expression, rapidImageAssertMessage_.c_str()); \
         assert(false);                                                                               \
     } else                                                                                           \
@@ -142,6 +156,20 @@ SOFTWARE.
 #define RII_BIG_ENDIAN    0
 #endif
 
+#if RAPID_IMAGE_SHARED_LIB
+#ifdef _WIN32
+#if RAPID_IMAGE_EXPORTS
+#define RII_API __declspec(dllexport)
+#else
+#define RII_API __declspec(dllimport)
+#endif
+#else // _WIN32
+#define RII_API __attribute__((visibility("default")))
+#endif // _WIN32
+#else  // RAPID_IMAGE_SHARED_LIB
+#define RII_API
+#endif
+
 #define RII_NO_COPY(T)                 \
     T(const T &)             = delete; \
     T & operator=(const T &) = delete
@@ -156,12 +184,12 @@ SOFTWARE.
 
 #define RII_STR_HELPER(x) #x
 
-#define RII_THROW(...)                                                                                            \
-    do {                                                                                                          \
-        std::stringstream riiThrowStrStream_;                                                                     \
-        riiThrowStrStream_ << __FILE__ << "(" << __LINE__ << "): " << RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__); \
-        RAPID_IMAGE_LOGE("%s", riiThrowStrStream_.str().data());                                                  \
-        RAPID_IMAGE_THROW(riiThrowStrStream_.str());                                                              \
+#define RII_THROW(...)                                                                                                         \
+    do {                                                                                                                       \
+        std::stringstream riiThrowStrStream_;                                                                                  \
+        riiThrowStrStream_ << __FILE__ << "(" << __LINE__ << "): " << RAPID_IMAGE_NAMESPACE::rii_details::format(__VA_ARGS__); \
+        RAPID_IMAGE_LOGE("%s", riiThrowStrStream_.str().data());                                                               \
+        RAPID_IMAGE_THROW(riiThrowStrStream_.str());                                                                           \
     } while (false)
 
 #if RAPID_IMAGE_ENABLE_DEBUG_BUILD
@@ -171,12 +199,12 @@ SOFTWARE.
 #define RII_ASSERT(...) ((void) 0)
 #endif
 
-#define RII_REQUIRE(condition, ...)                                                             \
-    do {                                                                                        \
-        if (!(condition)) {                                                                     \
-            auto riiRequireErrorMessage_ = RAPID_IMAGE_NAMESPACE::format(__VA_ARGS__);          \
-            RII_THROW("Condition " #condition " not met: %s", riiRequireErrorMessage_.c_str()); \
-        }                                                                                       \
+#define RII_REQUIRE(condition, ...)                                                                 \
+    do {                                                                                            \
+        if (!(condition)) {                                                                         \
+            auto riiRequireErrorMessage_ = RAPID_IMAGE_NAMESPACE::rii_details::format(__VA_ARGS__); \
+            RII_THROW("Condition " #condition " not met: %s", riiRequireErrorMessage_.c_str());     \
+        }                                                                                           \
     } while (false)
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -186,36 +214,16 @@ namespace RAPID_IMAGE_NAMESPACE {
 
 using namespace std::string_literals;
 
+namespace rii_details {
+
 // ---------------------------------------------------------------------------------------------------------------------
 /// \def format
 /// \brief A printf like string formatting function.
 #if __clang__
 __attribute__((format(printf, 1, 2)))
 #endif
-inline std::string
-format(const char * format, ...) {
-    va_list args;
-
-    // Get the size of the buffer needed to store the formatted string.
-    va_start(args, format);
-    int size = vsnprintf(nullptr, 0, format, args);
-    va_end(args);
-    if (size == -1) {
-        // Error getting the size of the buffer.
-        return {};
-    }
-
-    // Allocate the buffer.
-    std::string buffer((size_t) (size + 1), '\0');
-
-    // Format the string.
-    va_start(args, format);
-    vsnprintf(&buffer[0], (size_t) (size + 1), format, args);
-    va_end(args);
-
-    // Return the formatted string.
-    return buffer;
-}
+RII_API std::string
+        format(const char * format, ...);
 
 /// Overload of format() function for empty parameter list.
 inline std::string format() { return ""s; }
@@ -223,15 +231,17 @@ inline std::string format() { return ""s; }
 // ---------------------------------------------------------------------------------------------------------------------
 /// \brief Allocate aligned memory. The memory must be freed with afree(). Calling free() on the returned pointer
 /// will cause undefined behavior.
-void * aalloc(size_t a, size_t s);
+RII_API void * aalloc(size_t a, size_t s);
 
 // ---------------------------------------------------------------------------------------------------------------------
 // \brief Free memory allocated by aalloc().
-void afree(void * p);
+RII_API void afree(void * p);
+
+} // namespace rii_details
 
 // ---------------------------------------------------------------------------------------------------------------------
 /// @brief A convenience class that we use to hold one uncompressed pixel of any format
-union OnePixel {
+union RII_API OnePixel {
     struct {
         uint64_t lo;
         uint64_t hi;
@@ -398,7 +408,7 @@ static_assert(sizeof(Float4) == 128 / 8, "");
 
 // ---------------------------------------------------------------------------------------------------------------------
 /// @brief Pixel format structure
-union PixelFormat {
+union RII_API PixelFormat {
     struct {
 #if RII_LITTLE_ENDIAN
         /// @brief Defines pixel layout. See \ref Layout for details.
@@ -617,8 +627,8 @@ union PixelFormat {
         SIGN_SRGB = SIGN_GNORM,
         SIGN_UINT,  ///< unsigned integer
         SIGN_SINT,  ///< signed integer
-        SIGN_GINT,  ///< gamma integer
         SIGN_BINT,  ///< bias integer
+        SIGN_GINT,  ///< gamma integer
         SIGN_FLOAT, ///< signed floating pointer
     };
 
@@ -693,7 +703,7 @@ union PixelFormat {
     static constexpr PixelFormat make(Layout l, Sign si0123, Swizzle4 sw0123) { return make(l, si0123, si0123, si0123, sw0123); }
 
     /// @brief Construct pixel format from DXGI_FORMAT enum
-    static PixelFormat makeFromDXGIFormat(uint32_t);
+    static PixelFormat fromDXGI(uint32_t);
 
     /// @brief Check if the pixel format is empty.
     constexpr bool empty() const { return 0 == layout; }
@@ -719,15 +729,14 @@ union PixelFormat {
     /// @param channel Index of the channel we want the value for. Must be in range of [0, 3].
     float getPixelChannelFloat(const void * pixel, size_t channel);
 
-    ///
-    /// get layout descriptor
-    ///
+    /// @brief get layout descriptor
     constexpr const LayoutDesc & layoutDesc() const { return LAYOUTS[layout]; }
 
-    ///
-    /// Get bytes-per-pixel-block
-    ///
+    /// @brief Get bytes per pixel block
     constexpr uint8_t bytesPerBlock() const { return LAYOUTS[layout].blockBytes; }
+
+    /// @brief Get bits per pixel. This could be less than 1 byte for compressed formats.
+    constexpr uint8_t bitsPerPixel() const { return (uint8_t) (LAYOUTS[layout].blockBytes * 8 / LAYOUTS[layout].blockWidth / LAYOUTS[layout].blockHeight); }
 
     /// @brief Load uncompressed pixel value from float4. Do not support compressed format.
     OnePixel loadFromFloat4(const Float4 &) const;
@@ -735,27 +744,42 @@ union PixelFormat {
     /// @brief Store uncompressed pixel value to float4.
     Float4 storeToFloat4(const void *) const;
 
-    // /// @brief Convert PixelFormat to DXGI_FORMAT
-    // uint32_t toDXGIFormat() const;
+    /// @brief convert to string
+    std::string toString() const;
 
-    ///
-    /// convert to bool
-    ///
+    /// @brief Tuple of opengl format definition.
+    struct OpenGLFormat {
+        /// \brief The internal format specifier. See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml.
+        /// The value of 0 means the format is unknown. In this case, the other fields are undefined.
+        int internal = 0;
+
+        /// @brief The format of the pixel data.
+        unsigned int format = 0;
+
+        /// @brief The data type of the pixel data.
+        unsigned int type = 0;
+
+        bool isUnknow() const { return internal == 0; }
+
+        operator bool() const { return !isUnknow(); }
+    };
+
+    /// @brief Convert to OpenGL format color format
+    OpenGLFormat toOpenGL() const;
+
+    /// @brief Convert to DXGI_FORMAT
+    uint32_t toDXGI() const;
+
+    /// @brief convert to bool
     constexpr operator bool() const { return !empty(); }
 
-    ///
-    /// equality check
-    ///
+    /// @brief equality check
     constexpr bool operator==(const PixelFormat & c) const { return u32 == c.u32; }
 
-    ///
-    /// equality check
-    ///
+    /// @brief equality check
     constexpr bool operator!=(const PixelFormat & c) const { return u32 != c.u32; }
 
-    ///
-    /// less operator
-    ///
+    /// @brief less operator
     constexpr bool operator<(const PixelFormat & c) const { return u32 < c.u32; }
 
     // clang-format off
@@ -931,6 +955,7 @@ union PixelFormat {
     static constexpr PixelFormat DXT5_UNORM()                  { return make(LAYOUT_DXT5, SIGN_UNORM, SWIZZLE_XY00); }
     static constexpr PixelFormat DXT5_SNORM()                  { return make(LAYOUT_DXT5, SIGN_SNORM, SWIZZLE_XY00); }
     static constexpr PixelFormat DXT5_UINT()                   { return make(LAYOUT_DXT5, SIGN_UINT,  SWIZZLE_XY00); }
+    static constexpr PixelFormat DXT5_SRGB()                   { return make(LAYOUT_DXT5, SIGN_SRGB,  SWIZZLE_XY00); }
 
     static constexpr PixelFormat DXT5A_UNORM()                 { return make(LAYOUT_DXT5A, SIGN_UNORM, SWIZZLE_XYZW); }
     static constexpr PixelFormat DXT5A_SNORM()                 { return make(LAYOUT_DXT5A, SIGN_SNORM, SWIZZLE_XYZW); }
@@ -1115,7 +1140,7 @@ struct Extent3D {
 
 /// This represents a single 1D/2D/3D image plan. This is the building block of more complex image structures like
 /// cube/array images, mipmap chains and etc.
-struct PlaneDesc {
+struct RII_API PlaneDesc {
     /// pixel format
     PixelFormat format = PixelFormat::UNKNOWN();
 
@@ -1230,7 +1255,7 @@ struct PlaneDesc {
 ///
 /// Represent a complex image with optional mipmap chain
 ///
-struct ImageDesc {
+struct RII_API ImageDesc {
     /// Default alignment requirement for each plane. We set it to 16 bytes to be compatible with SSE instructions.
     inline static constexpr uint32_t DEFAULT_ALIGNMENT = 16;
 
@@ -1406,19 +1431,21 @@ struct ImageDesc {
     }
 
     struct AlignedDeleter {
-        void operator()(void * p) const { afree(p); }
+        void operator()(void * p) const { rii_details::afree(p); }
     };
     using AlignedUniquePtr = std::unique_ptr<uint8_t, AlignedDeleter>;
 
     /// @brief Load the image from input stream.
     /// This method support .RIL and .DDS formats by default. It can also support loading from other common image formats if
     /// stb_image.h is included before this header.
-    AlignedUniquePtr load(std::istream & stream);
+    /// \param name Name of the image. Optional. Used for logging only.
+    AlignedUniquePtr load(std::istream & stream, const char * name = nullptr);
 
     /// @brief Load the image from memory buffer
     /// This method support .RIL and .DDS formats by default. It can also support loading from other common image formats if
     /// stb_image.h is included before this header.
-    AlignedUniquePtr load(const void * data, size_t size);
+    /// \param name Name of the image. Optional. Used for logging only.
+    AlignedUniquePtr load(const void * data, size_t size, const char * name = nullptr);
 
     enum FileFormat {
         RIL, ///< Rapid Image Library format.
@@ -1479,8 +1506,8 @@ struct ImageDesc {
     }
 
 private:
-    AlignedUniquePtr loadFromRIL(std::istream & stream);
-    AlignedUniquePtr loadFromDDS(std::istream & stream);
+    AlignedUniquePtr loadFromRIL(std::istream & stream, const char * name);
+    AlignedUniquePtr loadFromDDS(std::istream & stream, const char * name);
 };
 
 /// Image descriptor combined with a pointer to pixel array. This is a convenient helper class for passing image
@@ -1523,7 +1550,7 @@ struct ImageProxy {
 };
 
 /// @brief The image class of rapid-image library.
-class Image {
+class RII_API Image {
 public:
     /// \name ctor/dtor/copy/move
     //@{
@@ -1605,13 +1632,16 @@ public:
     void save(const std::string & filename) const { return _proxy.save(filename); }
 
     /// Load image from binary input stream.
-    static Image load(std::istream &);
+    /// \param name Name of the image. This is optional and is used for logging only.
+    static Image load(std::istream &, const char * name = nullptr);
+
+    /// Load image from binary input stream.
+    /// \param name Name of the image. This is optional and is used for logging only.
+    static Image load(std::istream && stream, const char * name = nullptr) { return load(stream, name); }
 
     /// Load image from memory buffer.
-    static Image load(const void * data, size_t size);
-
-    /// Load image from file.
-    static Image load(const std::string & filename);
+    /// \param name Name of the image. This is optional and is used for logging only.
+    static Image load(const void * data, size_t size, const char * name = nullptr);
 
 private:
     ImageProxy _proxy;

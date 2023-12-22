@@ -14,6 +14,14 @@
 using namespace ril;
 using namespace std::string_literals;
 
+TEST_CASE("pixel-size") {
+    CHECK(8 == PixelFormat::A_8_UNORM().bitsPerPixel());
+    CHECK(1 == PixelFormat::A_8_UNORM().bytesPerBlock());
+
+    CHECK(4 == PixelFormat::DXT1_UNORM().bitsPerPixel());  // 4 bits per pixel
+    CHECK(8 == PixelFormat::DXT1_UNORM().bytesPerBlock()); // 8 byte per block
+}
+
 TEST_CASE("dxt1-face-major") {
     auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 0, ImageDesc::FACE_MAJOR, 4); // set alignment to 4.
     REQUIRE(desc.slice(0, 0) == 32768);
@@ -94,7 +102,7 @@ TEST_CASE("ril-save-load") {
 TEST_CASE("dds") {
     auto path = std::filesystem::path(TEST_SOURCE_DIR) / "rgba32f-64x64.dds";
     RAPID_IMAGE_LOGI("load from file: %s", path.string().c_str());
-    auto image = Image::load(path.string());
+    auto image = Image::load(std::ifstream(path, std::ios::binary), path.string().c_str());
     REQUIRE(!image.empty());
     REQUIRE(image.width() == 64);
     REQUIRE(image.height() == 64);
