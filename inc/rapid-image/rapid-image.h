@@ -736,7 +736,7 @@ union RII_API PixelFormat {
     constexpr uint8_t bytesPerBlock() const { return LAYOUTS[layout].blockBytes; }
 
     /// @brief Get bits per pixel. This could be less than 1 byte for compressed formats.
-    constexpr uint8_t bitsPerPixel() const { return LAYOUTS[layout].blockBytes * 8 / LAYOUTS[layout].blockWidth * LAYOUTS[layout].blockHeight; }
+    constexpr uint8_t bitsPerPixel() const { return (uint8_t) (LAYOUTS[layout].blockBytes * 8 / LAYOUTS[layout].blockWidth / LAYOUTS[layout].blockHeight); }
 
     /// @brief Load uncompressed pixel value from float4. Do not support compressed format.
     OnePixel loadFromFloat4(const Float4 &) const;

@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from ctypes import util
-import sys, subprocess, os, pathlib, argparse, shutil, glob
+import sys, subprocess, os, platform, pathlib, argparse, shutil, glob
 
 import importlib; utils = importlib.import_module("rapid-image-utils")
 
@@ -58,7 +58,7 @@ def cmake_config(args, build_dir, build_type):
         ndk = get_android_path('ANDROID_NDK_HOME')
         utils.logi(f"Using Android SDK: {sdk}")
         utils.logi(f"Using Android NDK: {ndk}")
-        if 'nt' == os.name:
+        if "Windows" == platform.system():
             ninja = sdk / "cmake/3.22.1/bin/ninja.exe"
             if not ninja.exists(): utils.rip(f"{ninja} not found. Please install cmake 3.18+ via Android SDK Manager." )
         else:
@@ -77,7 +77,10 @@ def cmake_config(args, build_dir, build_type):
             -DANDROID_ABI={android_abi} \
             -DCMAKE_ANDROID_ARCH_ABI={android_abi} \
             "
-    elif 'nt' != os.name:
+    elif 'Linux' == platform.system():
+        if not args.use_gcc: config += " -DCMAKE_C_COMPILER=clang-14 -DCMAKE_CXX_COMPILER=clang++-14"
+        config += " -GNinja"
+    elif 'Darwin' == platform.system():
         if not args.use_gcc: config += " -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++"
         config += " -GNinja"
     cmake(build_dir, config)
@@ -109,7 +112,7 @@ android_abi = "arm64-v8a" if args.android_build else None
 build_type, build_dir = utils.get_cmake_build_type(args.variant, args.build_dir, android_abi, args.use_gcc)
 
 if build_type is None:
-    if os.name == "nt":
+    if "Windows" == platform.system():
         os.system('taskkill /f /im java.exe 2>nul')
     else:
         # TODO: kill java process the Linux way.

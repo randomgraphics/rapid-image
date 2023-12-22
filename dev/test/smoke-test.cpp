@@ -14,6 +14,14 @@
 using namespace ril;
 using namespace std::string_literals;
 
+TEST_CASE("pixel-size") {
+    CHECK(8 == PixelFormat::A_8_UNORM().bitsPerPixel());
+    CHECK(1 == PixelFormat::A_8_UNORM().bytesPerBlock());
+
+    CHECK(4 == PixelFormat::DXT1_UNORM().bitsPerPixel());  // 4 bits per pixel
+    CHECK(8 == PixelFormat::DXT1_UNORM().bytesPerBlock()); // 8 byte per block
+}
+
 TEST_CASE("dxt1-face-major") {
     auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 0, ImageDesc::FACE_MAJOR, 4); // set alignment to 4.
     REQUIRE(desc.slice(0, 0) == 32768);
