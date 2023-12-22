@@ -80,5 +80,36 @@ To support other commonly seen image formats, like .PNG, .JPG and .BMP. You'll n
 #include <rapid-image/rapid-image.h>
 ```
 
+# Build
+The library itself is header-only. There's nothing to build. The folllowing instructions are for building samples and tests.
+
+## Build on Ubuntun 22.04
+
+Run the following command to install dependencies:
+```sh
+sudo apt update
+sudo apt install cmake python3-pip clang-14 clang-format-14
+python3 -m pip install termcolor
+```
+
+From the root of the repository, run the following commmand to initialize build environment:
+```sh
+./env.sh
+```
+
+Then run the following command to build:
+
+```sh
+b d # build debug variant
+b p # build profile variant
+b r # build release variant
+b --help # show build help screen.
+```
+
+After build is done. Run the following command for check-in-tests:
+```sh
+cit.py
+```
+
 # License
 The library is released under MIT license. See [LICENSE](LICENSE) file for details.
