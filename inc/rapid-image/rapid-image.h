@@ -166,7 +166,7 @@ SOFTWARE.
 #else // _WIN32
 #define RII_API __attribute__((visibility("default")))
 #endif // _WIN32
-#else // RAPID_IMAGE_SHARED_LIB
+#else  // RAPID_IMAGE_SHARED_LIB
 #define RII_API
 #endif
 
@@ -223,7 +223,7 @@ namespace rii_details {
 __attribute__((format(printf, 1, 2)))
 #endif
 RII_API std::string
-format(const char * format, ...);
+        format(const char * format, ...);
 
 /// Overload of format() function for empty parameter list.
 inline std::string format() { return ""s; }
