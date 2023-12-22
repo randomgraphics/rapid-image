@@ -21,7 +21,7 @@
 TEST_CASE("stb-save-load") {
     auto path = std::filesystem::path(TEST_SOURCE_DIR) / "alien-planet.jpg";
     RAPID_IMAGE_LOGI("load from file: %s", path.string().c_str());
-    auto image1 = ril::Image::load(path.string());
+    auto image1 = ril::Image::load(std::ifstream(path, std::ios::binary), path.string().c_str());
     REQUIRE(!image1.empty());
 
     // save to PNG

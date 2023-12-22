@@ -1438,12 +1438,14 @@ struct RII_API ImageDesc {
     /// @brief Load the image from input stream.
     /// This method support .RIL and .DDS formats by default. It can also support loading from other common image formats if
     /// stb_image.h is included before this header.
-    AlignedUniquePtr load(std::istream & stream);
+    /// \param name Name of the image. Optional. Used for logging only.
+    AlignedUniquePtr load(std::istream & stream, const char * name = nullptr);
 
     /// @brief Load the image from memory buffer
     /// This method support .RIL and .DDS formats by default. It can also support loading from other common image formats if
     /// stb_image.h is included before this header.
-    AlignedUniquePtr load(const void * data, size_t size);
+    /// \param name Name of the image. Optional. Used for logging only.
+    AlignedUniquePtr load(const void * data, size_t size, const char * name = nullptr);
 
     enum FileFormat {
         RIL, ///< Rapid Image Library format.
@@ -1504,8 +1506,8 @@ struct RII_API ImageDesc {
     }
 
 private:
-    AlignedUniquePtr loadFromRIL(std::istream & stream);
-    AlignedUniquePtr loadFromDDS(std::istream & stream);
+    AlignedUniquePtr loadFromRIL(std::istream & stream, const char * name);
+    AlignedUniquePtr loadFromDDS(std::istream & stream, const char * name);
 };
 
 /// Image descriptor combined with a pointer to pixel array. This is a convenient helper class for passing image
@@ -1630,13 +1632,16 @@ public:
     void save(const std::string & filename) const { return _proxy.save(filename); }
 
     /// Load image from binary input stream.
-    static Image load(std::istream &);
+    /// \param name Name of the image. This is optional and is used for logging only.
+    static Image load(std::istream &, const char * name = nullptr);
+
+    /// Load image from binary input stream.
+    /// \param name Name of the image. This is optional and is used for logging only.
+    static Image load(std::istream && stream, const char * name = nullptr) { return load(stream, name); }
 
     /// Load image from memory buffer.
-    static Image load(const void * data, size_t size);
-
-    /// Load image from file.
-    static Image load(const std::string & filename);
+    /// \param name Name of the image. This is optional and is used for logging only.
+    static Image load(const void * data, size_t size, const char * name = nullptr);
 
 private:
     ImageProxy _proxy;

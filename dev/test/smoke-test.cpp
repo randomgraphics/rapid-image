@@ -94,7 +94,7 @@ TEST_CASE("ril-save-load") {
 TEST_CASE("dds") {
     auto path = std::filesystem::path(TEST_SOURCE_DIR) / "rgba32f-64x64.dds";
     RAPID_IMAGE_LOGI("load from file: %s", path.string().c_str());
-    auto image = Image::load(path.string());
+    auto image = Image::load(std::ifstream(path, std::ios::binary), path.string().c_str());
     REQUIRE(!image.empty());
     REQUIRE(image.width() == 64);
     REQUIRE(image.height() == 64);

@@ -576,43 +576,45 @@ RII_API std::string PixelFormat::toString() const {
 RII_API auto PixelFormat::toOpenGL() const -> OpenGLFormat {
     OpenGLFormat result = {};
 
-    constexpr int          INTERNAL_RGB5                = 0x8050; // GL_RGB5
-    constexpr int          INTERNAL_RGB8                = 0x8051; // GL_RGB8
-    constexpr int          INTERNAL_RGB16               = 0x8054; // GL_RGB16
-    constexpr int          INTERNAL_RGB5_A1             = 0x8057; // GL_RGB5_A1
-    constexpr int          INTERNAL_RGBA8               = 0x8058; // GL_RGBA8
-    constexpr int          INTERNAL_RGBA16              = 0x805B; // GL_RGBA16
-    constexpr int          INTERNAL_ALPHA8              = 0x803C; // GL_ALPHA8
-    constexpr int          INTERNAL_ALPHA16             = 0x803E; // GL_ALPHA16
-    constexpr int          INTERNAL_LUMINANCE8          = 0x8040; // GL_LUMINANCE8
-    constexpr int          INTERNAL_LUMINANCE16         = 0x8042; // GL_LUMINANCE16
-    constexpr int          INTERNAL_LUMINANCE8_ALPHA8   = 0x8045; // GL_LUMINANCE8_ALPHA8
-    constexpr int          INTERNAL_LUMINANCE16_ALPHA16 = 0x8048; // GL_LUMINANCE16_ALPHA16
-    constexpr int          INTERNAL_DXT1                = 0x83F1; // GL_COMPRESSED_RGBA_S3TC_DXT1_EXT
-    constexpr int          INTERNAL_DXT3                = 0x83F2; // GL_COMPRESSED_RGBA_S3TC_DXT3_EXT
-    constexpr int          INTERNAL_DXT5                = 0x83F3; // GL_COMPRESSED_RGBA_S3TC_DXT5_EXT
-    constexpr int          INTERNAL_RGBA32F             = 0x8814; // GL_RGBA32F_ARB
-    constexpr int          INTERNAL_RGBA16F             = 0x881A; // GL_RGBA16F_ARB
-    constexpr int          INTERNAL_LUMINANCE_ALPHA32F  = 0x8819; // GL_LUMINANCE_ALPHA32F_ARB
-    constexpr int          INTERNAL_LUMINANCE_ALPHA16F  = 0x881F; // GL_LUMINANCE_ALPHA16F_ARB
-    constexpr unsigned int FORMAT_RGB                   = 0x1907; // GL_RGB
-    constexpr unsigned int FORMAT_RGBA                  = 0x1908; // GL_RGBA
-    constexpr unsigned int FORMAT_BGR_EXT               = 0x80E0; // GL_BGR_EXT
-    constexpr unsigned int FORMAT_BGRA_EXT              = 0x80E1; // GL_BGRA_EXT
-    constexpr unsigned int FORMAT_RED                   = 0x1903; // GL_RED
-    constexpr unsigned int FORMAT_ALPHA                 = 0x1906; // GL_ALPHA
-    constexpr unsigned int FORMAT_LUMINANCE             = 0x1909; // GL_LUMINANCE
-    constexpr unsigned int FORMAT_LUMINANCE_ALPHA       = 0x190A; // GL_LUMINANCE_ALPHA
-    constexpr unsigned int FORMAT_DEPTH_COMPONENT       = 0x1902; // GL_DEPTH_COMPONENT
-    constexpr unsigned int TYPE_BYTE                    = 0x1400; // GL_BYTE
-    constexpr unsigned int TYPE_UNSIGNED_BYTE           = 0x1401; // GL_UNSIGNED_BYTE
-    constexpr unsigned int TYPE_SHORT                   = 0x1402; // GL_SHORT
-    constexpr unsigned int TYPE_UNSIGNED_SHORT          = 0x1403; // GL_UNSIGNED_SHORT
-    constexpr unsigned int TYPE_INT                     = 0x1404; // GL_INT
-    constexpr unsigned int TYPE_UNSIGNED_INT            = 0x1405; // GL_UNSIGNED_INT
-    constexpr unsigned int TYPE_FLOAT                   = 0x1406; // GL_FLOAT
-    constexpr unsigned int TYPE_UNSIGNED_SHORT_5551     = 0x8034; // GL_UNSIGNED_SHORT_5_5_5_1
-    constexpr unsigned int TYPE_UNSIGNED_SHORT_565_REV  = 0x8364; // GL_UNSIGNED_SHORT_5_6_5_REV
+    constexpr int INTERNAL_RGB5    = 0x8050; // GL_RGB5
+    constexpr int INTERNAL_RGB8    = 0x8051; // GL_RGB8
+    constexpr int INTERNAL_RGB16   = 0x8054; // GL_RGB16
+    constexpr int INTERNAL_RGB5_A1 = 0x8057; // GL_RGB5_A1
+    constexpr int INTERNAL_RGBA8   = 0x8058; // GL_RGBA8
+    constexpr int INTERNAL_RGBA16  = 0x805B; // GL_RGBA16
+    constexpr int INTERNAL_ALPHA8  = 0x803C; // GL_ALPHA8
+    // constexpr int          INTERNAL_ALPHA16             = 0x803E; // GL_ALPHA16
+    constexpr int INTERNAL_LUMINANCE8          = 0x8040; // GL_LUMINANCE8
+    constexpr int INTERNAL_LUMINANCE16         = 0x8042; // GL_LUMINANCE16
+    constexpr int INTERNAL_LUMINANCE8_ALPHA8   = 0x8045; // GL_LUMINANCE8_ALPHA8
+    constexpr int INTERNAL_LUMINANCE16_ALPHA16 = 0x8048; // GL_LUMINANCE16_ALPHA16
+    constexpr int INTERNAL_DXT1                = 0x83F1; // GL_COMPRESSED_RGBA_S3TC_DXT1_EXT
+    constexpr int INTERNAL_DXT3                = 0x83F2; // GL_COMPRESSED_RGBA_S3TC_DXT3_EXT
+    constexpr int INTERNAL_DXT5                = 0x83F3; // GL_COMPRESSED_RGBA_S3TC_DXT5_EXT
+    constexpr int INTERNAL_RGBA32F             = 0x8814; // GL_RGBA32F_ARB
+    constexpr int INTERNAL_RGBA16F             = 0x881A; // GL_RGBA16F_ARB
+    constexpr int INTERNAL_LUMINANCE_ALPHA32F  = 0x8819; // GL_LUMINANCE_ALPHA32F_ARB
+    constexpr int INTERNAL_LUMINANCE_ALPHA16F  = 0x881F; // GL_LUMINANCE_ALPHA16F_ARB
+
+    constexpr unsigned int FORMAT_RGB             = 0x1907; // GL_RGB
+    constexpr unsigned int FORMAT_RGBA            = 0x1908; // GL_RGBA
+    constexpr unsigned int FORMAT_BGR_EXT         = 0x80E0; // GL_BGR_EXT
+    constexpr unsigned int FORMAT_BGRA_EXT        = 0x80E1; // GL_BGRA_EXT
+    constexpr unsigned int FORMAT_RED             = 0x1903; // GL_RED
+    constexpr unsigned int FORMAT_ALPHA           = 0x1906; // GL_ALPHA
+    constexpr unsigned int FORMAT_LUMINANCE       = 0x1909; // GL_LUMINANCE
+    constexpr unsigned int FORMAT_LUMINANCE_ALPHA = 0x190A; // GL_LUMINANCE_ALPHA
+    // constexpr unsigned int FORMAT_DEPTH_COMPONENT       = 0x1902; // GL_DEPTH_COMPONENT
+
+    constexpr unsigned int TYPE_BYTE          = 0x1400; // GL_BYTE
+    constexpr unsigned int TYPE_UNSIGNED_BYTE = 0x1401; // GL_UNSIGNED_BYTE
+    // constexpr unsigned int TYPE_SHORT                   = 0x1402; // GL_SHORT
+    constexpr unsigned int TYPE_UNSIGNED_SHORT = 0x1403; // GL_UNSIGNED_SHORT
+    // constexpr unsigned int TYPE_INT                     = 0x1404; // GL_INT
+    // constexpr unsigned int TYPE_UNSIGNED_INT            = 0x1405; // GL_UNSIGNED_INT
+    constexpr unsigned int TYPE_FLOAT                  = 0x1406; // GL_FLOAT
+    constexpr unsigned int TYPE_UNSIGNED_SHORT_5551    = 0x8034; // GL_UNSIGNED_SHORT_5_5_5_1
+    constexpr unsigned int TYPE_UNSIGNED_SHORT_565_REV = 0x8364; // GL_UNSIGNED_SHORT_5_6_5_REV
 
     if (PixelFormat::RGBA_32_32_32_32_FLOAT() == *this) {
         result.internal = INTERNAL_RGBA32F;
@@ -743,7 +745,7 @@ RII_API auto PixelFormat::toOpenGL() const -> OpenGLFormat {
 //
 // ---------------------------------------------------------------------------------------------------------------------
 RII_API uint32_t PixelFormat::toDXGI() const {
-    for(uint32_t i = 0; i < std::size(DXGI_FORMATS); ++i) {
+    for (uint32_t i = 0; i < std::size(DXGI_FORMATS); ++i) {
         if (*this == DXGI_FORMATS[i]) { return i; }
     }
     return 0;
@@ -1076,10 +1078,10 @@ struct RILHeaderV1 {
 };
 #pragma pack(pop)
 
-bool checkedRead(std::istream & stream, const char * action, void * buffer, size_t size) {
+bool checkedRead(std::istream & stream, const char * name, const char * action, void * buffer, size_t size) {
     stream.read((char *) buffer, (std::streamsize) size);
     if (!stream) {
-        RAPID_IMAGE_LOGE("failed to %s: stream is not in good state.", action);
+        RAPID_IMAGE_LOGE("Failed to %s from stream (%s): stream is not in good state.", name, action);
         return false;
     }
     return true;
@@ -1087,17 +1089,17 @@ bool checkedRead(std::istream & stream, const char * action, void * buffer, size
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-ImageDesc::AlignedUniquePtr ImageDesc::loadFromRIL(std::istream & stream) {
+ImageDesc::AlignedUniquePtr ImageDesc::loadFromRIL(std::istream & stream, const char * name) {
     if (!stream) {
-        RAPID_IMAGE_LOGE("failed to write image to stream: stream is in good state.");
+        RAPID_IMAGE_LOGE("failed to load DDS image from stream (%s): stream is in good state.", name);
         return {};
     }
 
     // read file tag
     RILFileTag tag;
-    if (!checkedRead(stream, "read image tag", &tag, sizeof(tag))) return {};
+    if (!checkedRead(stream, name, "read image tag", &tag, sizeof(tag))) return {};
     if (!tag.valid()) {
-        RAPID_IMAGE_LOGE("failed to read image from stream: Invalid file tag. The stream is probably not a RIL file.");
+        RAPID_IMAGE_LOGE("failed to read image from stream (%s): Invalid file tag. The stream is probably not a RIL file.", name);
         return {};
     }
 
@@ -1105,13 +1107,13 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromRIL(std::istream & stream) {
     if (1 == tag.version) {
         // read V1 file
         RILHeaderV1 header;
-        if (!checkedRead(stream, "read V1 header", &header, sizeof(header))) return {};
+        if (!checkedRead(stream, name, "read V1 header", &header, sizeof(header))) return {};
         if (!header.valid()) {
-            RAPID_IMAGE_LOGE("failed to read image from stream: Invalid file header.");
+            RAPID_IMAGE_LOGE("failed to read image from stream (%s): Invalid file header.", name);
             return {};
         }
         if (header.empty()) {
-            RAPID_IMAGE_LOGE("failed to read image from stream: empty image.");
+            RAPID_IMAGE_LOGE("failed to read image from stream (%s): empty image.", name);
             return {};
         }
         // read image descriptor
@@ -1121,19 +1123,19 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromRIL(std::istream & stream) {
         desc.size      = header.size;
         desc.alignment = header.alignment;
         desc.planes    = std::vector<PlaneDesc>(header.layers * header.levels);
-        if (!checkedRead(stream, "read image planes", desc.planes.data(), desc.planes.size() * sizeof(PlaneDesc))) return {};
+        if (!checkedRead(stream, name, "read image planes", desc.planes.data(), desc.planes.size() * sizeof(PlaneDesc))) return {};
         if (!desc.valid()) {
-            RAPID_IMAGE_LOGE("failed to read image from stream: Invalid image descriptor.");
+            RAPID_IMAGE_LOGE("failed to read image from stream (%s): Invalid image descriptor.", name);
             return {};
         }
         // read pixel array
         auto pixels = AlignedUniquePtr((uint8_t *) rii_details::aalloc(header.alignment, desc.size));
-        if (!checkedRead(stream, "read pixels", pixels.get(), desc.size)) return {};
+        if (!checkedRead(stream, name, "read pixels", pixels.get(), desc.size)) return {};
         // done
         *this = std::move(desc);
         return pixels;
     } else {
-        RAPID_IMAGE_LOGE("failed to read image from stream: unsupported file version %u.", tag.version);
+        RAPID_IMAGE_LOGE("failed to read image from stream (%s): unsupported file version %u.", name, tag.version);
         return {};
     }
 }
@@ -1377,17 +1379,17 @@ static PixelFormat getPixelFormatFromDDPF(const DDPixelFormat & ddpf) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-ImageDesc::AlignedUniquePtr ImageDesc::loadFromDDS(std::istream & stream) {
+ImageDesc::AlignedUniquePtr ImageDesc::loadFromDDS(std::istream & stream, const char * name) {
     // read file header
     DDSFileHeader header;
-    if (!checkedRead(stream, "read DDS header", &header, sizeof(header))) return {};
+    if (!checkedRead(stream, name, "read DDS header", &header, sizeof(header))) return {};
     constexpr uint32_t required_flags = DDS_DDSD_WIDTH | DDS_DDSD_HEIGHT;
     if (required_flags != (required_flags & header.flags)) {
-        RAPID_IMAGE_LOGE("damage DDS header!");
+        RAPID_IMAGE_LOGE("failed to load DDS image from input stream (%s): damage DDS header!", name);
         return {};
     }
     if (DDS_DDPF_PALETTEINDEXED8 & header.ddpf.flags) {
-        RAPID_IMAGE_LOGE("do not support palette format!");
+        RAPID_IMAGE_LOGE("failed to load DDS image from input stream (%s): do not support palette format!", name);
         return {};
     }
 
@@ -1396,7 +1398,7 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromDDS(std::istream & stream) {
     if (MAKE_FOURCC('D', 'X', '1', '0') == header.ddpf.fourcc) {
         // read DX10 info
         DDSHeaderDX10 dx10;
-        if (!checkedRead(stream, "read DX10 info", &dx10, sizeof(dx10))) return {};
+        if (!checkedRead(stream, name, "read DX10 info", &dx10, sizeof(dx10))) return {};
         format = PixelFormat::fromDXGI(dx10.format);
         if (!format.valid()) return {};
     } else {
@@ -1424,7 +1426,7 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromDDS(std::istream & stream) {
     } else if (0 == (DDS_CAPS2_CUBEMAP & header.caps2) && 0 == (DDS_CAPS2_VOLUME & header.caps2)) {
         faces = 1; // 2D texture
     } else {
-        RAPID_IMAGE_LOGE("Fail to detect image face count!");
+        RAPID_IMAGE_LOGE("failed to load DDS image from input stream (%s): Fail to detect image face count!", name);
         return {};
     }
     uint32_t width  = header.width;
@@ -1442,7 +1444,7 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromDDS(std::istream & stream) {
 
     // Read pixel data
     auto pixels = AlignedUniquePtr((uint8_t *) rii_details::aalloc(desc.alignment, desc.size));
-    if (!checkedRead(stream, "read pixels", pixels.get(), desc.size)) return {};
+    if (!checkedRead(stream, name, "read pixels", pixels.get(), desc.size)) return {};
 
     // bgr -> rgb
     if (bgr2rgb) {
@@ -1654,9 +1656,11 @@ ImageDesc & ImageDesc::setCube(PixelFormat format, size_t width, size_t levels_,
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-ImageDesc::AlignedUniquePtr ImageDesc::load(std::istream & stream) {
+ImageDesc::AlignedUniquePtr ImageDesc::load(std::istream & stream, const char * name) {
+    if (!name || !name[0]) name = "<unnamed>";
+
     if (!stream) {
-        RAPID_IMAGE_LOGE("failed to write image to stream: stream is not good.");
+        RAPID_IMAGE_LOGE("failed to load image %s from istream: the input stream is not in good state.", name);
         return {};
     }
 
@@ -1665,17 +1669,17 @@ ImageDesc::AlignedUniquePtr ImageDesc::load(std::istream & stream) {
 
     // check if the file is RIL or not.
     RILFileTag rilTag;
-    if (checkedRead(stream, "read RIL image tag", &rilTag, sizeof(rilTag)) && rilTag.valid()) {
+    if (checkedRead(stream, name, "read RIL image tag", &rilTag, sizeof(rilTag)) && rilTag.valid()) {
         stream.seekg(begin, std::ios::beg);
-        return loadFromRIL(stream);
+        return loadFromRIL(stream, name);
     }
 
     // try read as DDS
     uint32_t ddsTag = 0;
     stream.seekg(begin, std::ios::beg);
-    if (checkedRead(stream, "read DDS image tag", &ddsTag, sizeof(ddsTag)) && 0x20534444 == ddsTag) {
+    if (checkedRead(stream, name, "read DDS image tag", &ddsTag, sizeof(ddsTag)) && 0x20534444 == ddsTag) {
         stream.seekg(begin, std::ios::beg);
-        return loadFromDDS(stream);
+        return loadFromDDS(stream, name);
     }
 
 #ifdef STBI_INCLUDE_STB_IMAGE_H
@@ -1717,20 +1721,20 @@ ImageDesc::AlignedUniquePtr ImageDesc::load(std::istream & stream) {
 #endif
 
     // Have tried everything w/o luck.
-    RAPID_IMAGE_LOGE("failed to read image from stream: unsupported/unrecognized file format.");
+    RAPID_IMAGE_LOGE("failed to read image %s from stream: unsupported/unrecognized file format.", name);
     return {};
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-ImageDesc::AlignedUniquePtr ImageDesc::load(const void * data_, size_t size_) {
+ImageDesc::AlignedUniquePtr ImageDesc::load(const void * data_, size_t size_, const char * name) {
     if (!data_ || !size_) {
-        RAPID_IMAGE_LOGW("load image from null or zero size data returns empty image.");
+        RAPID_IMAGE_LOGW("load image (%s) from null or zero size data returns empty image.", name ? name : "unnamed");
         return {};
     }
     auto str = std::string((const char *) data_, size_);
     auto iss = std::istringstream(str);
-    return load(iss);
+    return load(iss, name);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1882,9 +1886,9 @@ void Image::construct(const void * initialContent, size_t initialContentSizeInby
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-Image Image::load(std::istream & fp) {
+Image Image::load(std::istream & fp, const char * name) {
     Image r;
-    auto  pixels = r._proxy.desc.load(fp);
+    auto  pixels = r._proxy.desc.load(fp, name);
     if (!pixels) return {};
     r._proxy.data = pixels.release();
     return r;
@@ -1892,9 +1896,9 @@ Image Image::load(std::istream & fp) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-Image Image::load(const void * data, size_t size) {
+Image Image::load(const void * data, size_t size, const char * name) {
     Image r;
-    auto  pixels = r._proxy.desc.load(data, size);
+    auto  pixels = r._proxy.desc.load(data, size, name);
     if (!pixels) return {};
     r._proxy.data = pixels.release();
     return r;
@@ -1902,13 +1906,13 @@ Image Image::load(const void * data, size_t size) {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-Image Image::load(const std::string & filename) {
-    std::ifstream f(filename, std::ios::binary);
-    if (!f) {
-        RAPID_IMAGE_LOGE("Failed to open image file %s : errno=%d", filename.c_str(), errno);
-        return {};
-    }
-    return load(f);
-}
+// Image Image::load(const std::string & filename) {
+//     std::ifstream f(filename, std::ios::binary);
+//     if (!f) {
+//         RAPID_IMAGE_LOGE("Failed to open image file %s : errno=%d", filename.c_str(), errno);
+//         return {};
+//     }
+//     return load(f);
+// }
 
 } // namespace RAPID_IMAGE_NAMESPACE
