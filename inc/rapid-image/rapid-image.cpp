@@ -331,9 +331,9 @@ static void convertToRGBA8(RGBA8 * result, const PixelFormat::LayoutDesc & ld, c
     } else if (1 == ld.blockWidth && 1 == ld.blockHeight) {
         // this is the general case that could in theory handle any format.
         auto f4 = format.storeToFloat4(src);
-        *result =
-            RGBA8::make((uint8_t) std::clamp<uint32_t>((uint32_t) (f4.x * 255.0f), 0, 255), (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.y * 255.0f), 0, 255),
-                        (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.z * 255.0f), 0, 255), (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.w * 255.0f), 0, 255));
+        *result = RGBA8::makeU8(
+            (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.x * 255.0f), 0, 255), (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.y * 255.0f), 0, 255),
+            (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.z * 255.0f), 0, 255), (uint8_t) std::clamp<uint32_t>((uint32_t) (f4.w * 255.0f), 0, 255));
     } else {
         // decompressed format
         RII_THROW("NOT IMPLEMENTED");

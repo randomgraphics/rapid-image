@@ -42,7 +42,7 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 3
+#define RAPID_IMAGE_HEADER_REVISION 4
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
@@ -301,26 +301,27 @@ union RGBA8 {
     int8_t   i8[4];
     char     c8[4];
 
-    static RGBA8 make(uint8_t r, uint8_t g = 0, uint8_t b = 0, uint8_t a = 0) { return {{r, g, b, a}}; }
+    static RGBA8 makeU8(uint8_t r, uint8_t g = 0, uint8_t b = 0, uint8_t a = 0) { return {{r, g, b, a}}; }
 
-    static RGBA8 make(float r, float g, float b, float a) {
+    static RGBA8 makeF32(float r, float g, float b, float a) {
         return {{static_cast<uint8_t>(std::clamp(r, 0.f, 1.f) * 255.0f), static_cast<uint8_t>(std::clamp(g, 0.f, 1.f) * 255.0f),
                  static_cast<uint8_t>(std::clamp(b, 0.f, 1.f) * 255.0f), static_cast<uint8_t>(std::clamp(a, 0.f, 1.f) * 255.0f)}};
     }
 
-    static RGBA8 make(const uint8_t * p) { return {{p[0], p[1], p[2], p[3]}}; }
+    static RGBA8 makeU8(const uint8_t * p) { return {{p[0], p[1], p[2], p[3]}}; }
 
-    static RGBA8 make(uint32_t u) {
+    static RGBA8 makeU32(uint32_t u) {
         RGBA8 result;
         result.u32 = u;
         return result;
     }
 
-    void set(uint8_t r_, uint8_t g_ = 0, uint8_t b_ = 0, uint8_t a_ = 0) {
+    RGBA8 & setU8(uint8_t r_, uint8_t g_ = 0, uint8_t b_ = 0, uint8_t a_ = 0) {
         r = r_;
         g = g_;
         b = b_;
         a = a_;
+        return *this;
     }
 };
 static_assert(sizeof(RGBA8) == 4, "");
