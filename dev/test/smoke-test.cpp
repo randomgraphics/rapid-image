@@ -23,55 +23,55 @@ TEST_CASE("pixel-size") {
 }
 
 TEST_CASE("dxt1-face-major") {
-    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 0, ImageDesc::FACE_MAJOR, 4); // set alignment to 4.
-    REQUIRE(desc.slice(0, 0) == 32768);
-    REQUIRE(desc.slice(0, 1) == 8192);
-    REQUIRE(desc.slice(0, 2) == 2048);
-    REQUIRE(desc.slice(0, 3) == 512);
-    REQUIRE(desc.slice(0, 4) == 128);
-    REQUIRE(desc.slice(0, 5) == 32);
-    REQUIRE(desc.slice(0, 6) == 8);
-    REQUIRE(desc.slice(0, 7) == 8);
-    REQUIRE(desc.slice(0, 8) == 8);
+    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 1, 0, ImageDesc::FACE_MAJOR, 4); // set alignment to 4.
+    REQUIRE(desc.slice({0, 0, 0}) == 32768);
+    REQUIRE(desc.slice({0, 0, 1}) == 8192);
+    REQUIRE(desc.slice({0, 0, 2}) == 2048);
+    REQUIRE(desc.slice({0, 0, 3}) == 512);
+    REQUIRE(desc.slice({0, 0, 4}) == 128);
+    REQUIRE(desc.slice({0, 0, 5}) == 32);
+    REQUIRE(desc.slice({0, 0, 6}) == 8);
+    REQUIRE(desc.slice({0, 0, 7}) == 8);
+    REQUIRE(desc.slice({0, 0, 8}) == 8);
     REQUIRE(desc.size == 43704 * 6);
 
     // check offsets to ensure it is face-major
-    REQUIRE(desc.pixel(0, 0) == 0);
-    REQUIRE(desc.pixel(0, 1) == desc.pixel(0, 0) + desc.slice(0, 0));
-    REQUIRE(desc.pixel(0, 2) == desc.pixel(0, 1) + desc.slice(0, 1));
-    REQUIRE(desc.pixel(0, 3) == desc.pixel(0, 2) + desc.slice(0, 2));
-    REQUIRE(desc.pixel(0, 4) == desc.pixel(0, 3) + desc.slice(0, 3));
-    REQUIRE(desc.pixel(0, 5) == desc.pixel(0, 4) + desc.slice(0, 4));
-    REQUIRE(desc.pixel(0, 6) == desc.pixel(0, 5) + desc.slice(0, 5));
-    REQUIRE(desc.pixel(0, 7) == desc.pixel(0, 6) + desc.slice(0, 6));
-    REQUIRE(desc.pixel(0, 8) == desc.pixel(0, 7) + desc.slice(0, 7));
+    REQUIRE(desc.pixel({0, 0, 0}) == 0);
+    REQUIRE(desc.pixel({0, 0, 1}) == desc.pixel({0, 0, 0}) + desc.slice({0, 0, 0}));
+    REQUIRE(desc.pixel({0, 0, 2}) == desc.pixel({0, 0, 1}) + desc.slice({0, 0, 1}));
+    REQUIRE(desc.pixel({0, 0, 3}) == desc.pixel({0, 0, 2}) + desc.slice({0, 0, 2}));
+    REQUIRE(desc.pixel({0, 0, 4}) == desc.pixel({0, 0, 3}) + desc.slice({0, 0, 3}));
+    REQUIRE(desc.pixel({0, 0, 5}) == desc.pixel({0, 0, 4}) + desc.slice({0, 0, 4}));
+    REQUIRE(desc.pixel({0, 0, 6}) == desc.pixel({0, 0, 5}) + desc.slice({0, 0, 5}));
+    REQUIRE(desc.pixel({0, 0, 7}) == desc.pixel({0, 0, 6}) + desc.slice({0, 0, 6}));
+    REQUIRE(desc.pixel({0, 0, 8}) == desc.pixel({0, 0, 7}) + desc.slice({0, 0, 7}));
 }
 
 TEST_CASE("dxt1-mip-major") {
-    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 0, ImageDesc::MIP_MAJOR, 4); // set alignment to 4.
-    REQUIRE(desc.slice(0, 0) == 32768);
-    REQUIRE(desc.slice(0, 1) == 8192);
-    REQUIRE(desc.slice(0, 2) == 2048);
-    REQUIRE(desc.slice(0, 3) == 512);
-    REQUIRE(desc.slice(0, 4) == 128);
-    REQUIRE(desc.slice(0, 5) == 32);
-    REQUIRE(desc.slice(0, 6) == 8);
-    REQUIRE(desc.slice(0, 7) == 8);
-    REQUIRE(desc.slice(0, 8) == 8);
+    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 1, 0, ImageDesc::MIP_MAJOR, 4); // set alignment to 4.
+    REQUIRE(desc.slice({0, 0, 0}) == 32768);
+    REQUIRE(desc.slice({0, 0, 1}) == 8192);
+    REQUIRE(desc.slice({0, 0, 2}) == 2048);
+    REQUIRE(desc.slice({0, 0, 3}) == 512);
+    REQUIRE(desc.slice({0, 0, 4}) == 128);
+    REQUIRE(desc.slice({0, 0, 5}) == 32);
+    REQUIRE(desc.slice({0, 0, 6}) == 8);
+    REQUIRE(desc.slice({0, 0, 7}) == 8);
+    REQUIRE(desc.slice({0, 0, 8}) == 8);
     REQUIRE(desc.size == 43704 * 6);
 
     // check offsets to ensure it is face-major
-    REQUIRE(desc.pixel(0, 0) == 0);
-    REQUIRE(desc.pixel(1, 0) == desc.pixel(0, 0) + desc.slice(0, 0));
-    REQUIRE(desc.pixel(2, 0) == desc.pixel(1, 0) + desc.slice(1, 0));
-    REQUIRE(desc.pixel(3, 0) == desc.pixel(2, 0) + desc.slice(2, 0));
-    REQUIRE(desc.pixel(4, 0) == desc.pixel(3, 0) + desc.slice(3, 0));
-    REQUIRE(desc.pixel(5, 0) == desc.pixel(4, 0) + desc.slice(4, 0));
+    REQUIRE(desc.pixel({0, 0, 0}) == 0);
+    REQUIRE(desc.pixel({0, 1, 0}) == desc.pixel({0, 0, 0}) + desc.slice({0, 0, 0}));
+    REQUIRE(desc.pixel({0, 2, 0}) == desc.pixel({0, 1, 0}) + desc.slice({0, 1, 0}));
+    REQUIRE(desc.pixel({0, 3, 0}) == desc.pixel({0, 2, 0}) + desc.slice({0, 2, 0}));
+    REQUIRE(desc.pixel({0, 4, 0}) == desc.pixel({0, 3, 0}) + desc.slice({0, 3, 0}));
+    REQUIRE(desc.pixel({0, 5, 0}) == desc.pixel({0, 4, 0}) + desc.slice({0, 4, 0}));
 }
 
 TEST_CASE("default-alignment") {
     // create a multi-plane image with default alignment
-    Image        image(ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA8(), {2, 2, 2}), 4, 0));
+    Image        image(ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA8(), {2, 2, 2}), 4, 1, 0));
     const auto & desc = image.desc();
     REQUIRE(0 == (((size_t) (intptr_t) image.data()) % desc.alignment));
     for (const auto & p : desc.planes) { REQUIRE(0 == (p.offset % desc.alignment)); }
@@ -79,7 +79,7 @@ TEST_CASE("default-alignment") {
 
 TEST_CASE("ril-save-load") {
     // create a multi-plane image with default alignment
-    Image img1(ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA8(), {2, 2, 2}), 4, 0));
+    Image img1(ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA8(), {2, 2, 2}), 4, 1, 0));
 
     // TODO: set pixel values.
 

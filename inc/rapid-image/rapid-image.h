@@ -42,7 +42,7 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 4
+#define RAPID_IMAGE_HEADER_REVISION 5
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
@@ -1164,8 +1164,11 @@ struct RII_API PlaneDesc {
     /// Bytes between first pixel of the plane to the first pixel of the whole image.
     uint32_t offset = 0;
 
+    /// Alignment requirement for each pixel (block) row. Default is 4 bytes.
+    uint32_t alignment = 4;
+
     /// Create a new image plane descriptor
-    static PlaneDesc make(PixelFormat format, const Extent3D & extent, size_t step = 0, size_t pitch = 0, size_t slice = 0);
+    static PlaneDesc make(PixelFormat format, const Extent3D & extent, size_t step = 0, size_t pitch = 0, size_t slice = 0, size_t alignment = 4);
 
     PlaneDesc & setFormat(PixelFormat format_) {
         format = format_;
@@ -1182,17 +1185,7 @@ struct RII_API PlaneDesc {
         return *this;
     }
 
-    PlaneDesc & setSpacing(size_t step_, size_t pitch_ = 0, size_t slice_ = 0) {
-        RII_REQUIRE(format.valid(), "must call this after setting the pixel format.");
-        const auto & fd = format.layoutDesc();
-        RII_REQUIRE(!extent.empty(), "must call this after setting the plane extent.");
-        auto numBlocksPerRow = (uint32_t) ((extent.w + fd.blockWidth - 1) / fd.blockWidth);
-        auto numBlocksPerCol = (uint32_t) ((extent.h + fd.blockHeight - 1) / fd.blockHeight);
-        step                 = std::max((uint32_t) step_, (uint32_t) (fd.blockBytes));
-        pitch                = std::max(step * numBlocksPerRow, (uint32_t) pitch_);
-        slice                = std::max(pitch * numBlocksPerCol, (uint32_t) slice_);
-        return *this;
-    }
+    PlaneDesc & setSpacing(size_t step_, size_t pitch_ = 0, size_t slice_ = 0, size_t alignment = 4);
 
     /// returns offset from start of data buffer for a particular pixel within the plane
     size_t pixel(size_t x, size_t y, size_t z = 0) const {
@@ -1253,12 +1246,61 @@ struct RII_API PlaneDesc {
     }
 };
 
+/// @brief A 3D coordinate that defines locaton of a plane in a image.
+struct PlaneCoord {
+    size_t array = 0;
+    size_t face  = 0;
+    size_t level = 0;
+};
+
 ///
 /// Represent a complex image with optional mipmap chain
 ///
 struct RII_API ImageDesc {
-    /// Default alignment requirement for each plane. We set it to 16 bytes to be compatible with SSE instructions.
-    inline static constexpr uint32_t DEFAULT_ALIGNMENT = 16;
+    /// Defines how pixels packed in memory.
+    /// Note that this only affects how plane offset are calculated. The 'planes' array is always indexed the same way.
+    enum ConstructionOrder {
+        /// In this mode, pixels from same face are packed together. For example, given a cubemap with 6 faces
+        /// and 3 mipmap levels, the offsets are calculated in this order:
+        ///
+        ///     array 0, face 0, mip 0
+        ///     array 0, face 0, mip 1
+        ///     array 0, face 0, mip 2
+        ///
+        ///     array 0, face 1, mip 0
+        ///     array 0, face 1, mip 1
+        ///     array 0, face 1, mip 2
+        ///     ...
+        ///     array 0, face 5, mip 0
+        ///     array 0, face 5, mip 1
+        ///     array 0, face 5, mip 2
+        ///
+        ///     ... repeat for all elemnts in the image array.
+        ///
+        /// Note: this is the order used by DDS file.
+        FACE_MAJOR,
+
+        /// In this mode, pixels from same mipmap level are packed together. For example, given a cubemap with
+        /// 6 faces and 3 mipmap levels, the pixels are packed in memory in this order:
+        ///
+        ///     array 0, mip 0, face 0
+        ///     array 0, mip 0, face 1
+        ///     array 0, mip 0, ...
+        ///     array 0, mip 0, face 5
+        ///
+        ///     array 0, mip 1, face 0
+        ///     array 0, mip 1, face 1
+        ///     array 0, mip 1, ...
+        ///     array 0, mip 1, face 5
+        ///
+        ///     array 0, mip 2, face 0
+        ///     array 0, mip 2, face 1
+        ///     array 0, mip 2, ...
+        ///     array 0, mip 2, face 5
+        ///
+        ///     ... repeat for all images in the image array.
+        MIP_MAJOR,
+    };
 
     // ****************************
     /// \name member data
@@ -1267,17 +1309,19 @@ struct RII_API ImageDesc {
     //@{
 
     /// @brief Image plane array.
-    /// Length of the array should always be (layers * levels), in mip level major fashion. Index, layer and level
-    /// can be calculated as follows:
-    ///  - index = level * layers + layer
-    ///  - level = index / layers
-    ///  - layer = index % layers
+    /// Length of the array should always be (levels * faces * arrayLength).
+    /// The plane array is indexed by a 3D cooridnate defined as [a, f, l], where a is the array index, f is the face index, l is the mipmap level.
+    /// The plane index = a * levels * faces + f * levels + l.
+    /// You can also deduce [a, f, l] coordinate from the plane index in the following way:
+    ///     a = planeIndex / (levels * faces)
+    ///     f = (planeIndex / levels) % faces
+    ///     l = planeIndex % levels
     std::vector<PlaneDesc> planes;
-    uint32_t               layers    = 0;                 ///< number of layers
-    uint32_t               levels    = 0;                 ///< number of mipmap levels
-    uint64_t               size      = 0;                 ///< total size in bytes of the whole image.
-    uint32_t               alignment = DEFAULT_ALIGNMENT; ///< memory alignment requirement for each plane. Default is 4 bytes.
-    uint32_t : 32;                                        // pading;
+    uint32_t               arrayLength = 0; ///< length of image array. Default is 1 for non-array image.
+    uint32_t               faces       = 0; ///< number of faces. Default is 1. 6 for cubemap.
+    uint32_t               levels      = 0; ///< number of mipmap levels
+    uint32_t               alignment   = 0; ///< memory alignment requirement for each plane.
+    uint64_t               size        = 0; ///< total size in bytes of the whole image.
 
     //@}
 
@@ -1289,48 +1333,6 @@ struct RII_API ImageDesc {
 
     /// @brief  Default constructor
     ImageDesc() = default;
-
-    /// Defines how pixels packed in memory.
-    /// Note that this only affects how plane offset are calculated. The 'planes' data member in this structure
-    /// is always indexed in mip level major fashion.
-    enum ConstructionOrder {
-        /// In this mode, pixels from same face are packed together. For example, given a cubemap with 6 faces
-        /// and 3 mipmap levels, the offsets are calculated in this order:
-        ///
-        ///     face 0, mip 0
-        ///     face 0, mip 1
-        ///     face 0, mip 2
-        ///
-        ///     face 1, mip 0
-        ///     face 1, mip 1
-        ///     face 1, mip 2
-        ///     ...
-        ///     face 5, mip 0
-        ///     face 5, mip 1
-        ///     face 5, mip 2
-        ///
-        /// Note: this is the order used by DDS file.
-        FACE_MAJOR,
-
-        /// In this mode, pixels from same mipmap level are packed together. For example, given a cubemap with
-        /// 6 faces and 3 mipmap levels, the pixels are packed in memory in this order:
-        ///
-        ///     mip 0, face 0
-        ///     mip 0, face 1
-        ///     mip 0, ...
-        ///     mip 0, face 5
-        ///
-        ///     mip 1, face 0
-        ///     mip 1, face 1
-        ///     mip 1, ...
-        ///     mip 1, face 5
-        ///
-        ///     mip 2, face 0
-        ///     mip 2, face 1
-        ///     mip 2, ...
-        ///     mip 2, face 5
-        MIP_MAJOR,
-    };
 
     /// Copy constructor
     ImageDesc(const ImageDesc &) = default;
@@ -1347,36 +1349,70 @@ struct RII_API ImageDesc {
     /// Reset to empty image
     ImageDesc & clear();
 
-    /// Reset the descriptor
-    /// \param baseMap Base map of the image. This is the first plane of the image.
-    /// \param layers  Number of layers in the image. Default is 1.
-    /// \param levels  Number of mipmap levels. Default is 1. Set to 0 to automatically generate the full mipmap chain.
-    /// \param order   Specify the order of image planes in memory. Default is FACE_MAJOR.
-    /// \param planeOffsetAlignment Alignment of the plane offset. Default is 4.
-    ImageDesc & reset(const PlaneDesc & baseMap, size_t layers = 1, size_t levels = 1, ConstructionOrder order = FACE_MAJOR,
-                      size_t planeOffsetAlignment = DEFAULT_ALIGNMENT);
+    /// Align the planes to 16 bytes by default to be compatible with SSE/AVX instructions.
+    constexpr static uint32_t DEFAULT_PLANE_ALIGNMENT= 16;
+
+    /// @brief Reset the descriptor
+    /// @param baseMap     Base map of the image. This is the first plane of the image.
+    /// @param arrayLength Number of layers in the image. Default is 1.
+    /// @param faces       Number of faces. Default is 1. Set to 6 for cubemap.
+    /// @param levels      Number of mipmap levels. Default is 1. Set to 0 to automatically generate the full mipmap chain.
+    /// @param order       Specify the order of image planes in memory. Default is FACE_MAJOR.
+    /// @param alignment   Plane alignment requirements.
+    ImageDesc & reset(const PlaneDesc & baseMap, size_t arrayLength = 1, size_t faces = 1, size_t levels = 1, ConstructionOrder order = FACE_MAJOR,
+                      size_t alignment = DEFAULT_PLANE_ALIGNMENT);
 
     /// @brief Set to simple 2D Image
-    /// @param format   Pixel format
-    /// @param width    Width of the image in pixels
-    /// @param height   Height of the image in pixels
-    /// @param levels   Mipmap count. Set to 0 to automatically generate full mipmap chain.
-    ImageDesc & set2D(PixelFormat format, size_t width, size_t height = 1, size_t levels = 1, ConstructionOrder order = MIP_MAJOR,
-                      size_t planeOffsetAlignment = DEFAULT_ALIGNMENT);
+    /// @param format    Pixel format
+    /// @param width     Width of the image in pixels
+    /// @param height    Height of the image in pixels
+    /// @param levels    Mipmap count. Set to 0 to automatically generate full mipmap chain.
+    /// @param alignment Plane alignment requirements.
+    ImageDesc & set2D(PixelFormat format, size_t width, size_t height = 1, size_t levels = 1, ConstructionOrder order = FACE_MAJOR,
+                      size_t alignment = DEFAULT_PLANE_ALIGNMENT);
+
+    /// @brief Set to 2D array image
+    /// @param format      Pixel format
+    /// @param arrayLength Number of layers in the image.
+    /// @param width       Width of the image in pixels
+    /// @param height      Height of the image in pixels
+    /// @param levels      Mipmap count. Set to 0 to automatically generate full mipmap chain.
+    /// @param alignment   Plane alignment requirements.
+    ImageDesc & set2DArray(PixelFormat format, size_t arrayLength, size_t width, size_t height = 1, size_t levels = 1, ConstructionOrder order = FACE_MAJOR,
+                           size_t alignment = DEFAULT_PLANE_ALIGNMENT);
 
     /// @brief Set to simple 2D Image
-    /// @param format   Pixel format
-    /// @param width    Width and height of the image in pixels
-    /// @param levels   Mipmap count. Set to 0 to automatically generate full mipmap chain.
-    ImageDesc & setCube(PixelFormat format, size_t width, size_t levels = 1, ConstructionOrder order = MIP_MAJOR,
-                        size_t planeOffsetAlignment = DEFAULT_ALIGNMENT);
+    /// @param format    Pixel format
+    /// @param width     Width and height of the image in pixels
+    /// @param levels    Mipmap count. Set to 0 to automatically generate full mipmap chain.
+    /// @param alignment Plane alignment requirements.
+    ImageDesc & setCube(PixelFormat format, size_t width, size_t levels = 1, ConstructionOrder order = FACE_MAJOR, size_t alignment = DEFAULT_PLANE_ALIGNMENT);
+
+    /// @brief Set to simple 2D Image
+    /// @param format      Pixel format
+    /// @param arrayLength Number of layers in the image.
+    /// @param width       Width and height of the image in pixels
+    /// @param levels      Mipmap count. Set to 0 to automatically generate full mipmap chain.
+    /// @param alignment   Plane alignment requirements.
+    ImageDesc & setCubeArray(PixelFormat format, size_t arrayLength, size_t width, size_t levels = 1, ConstructionOrder order = FACE_MAJOR,
+                             size_t alignment = DEFAULT_PLANE_ALIGNMENT);
+
+    /// @brief Set to simple 3D Image
+    /// @param format    Pixel format
+    /// @param width     Width of the image in pixels
+    /// @param height    Height of the image in pixels
+    /// @param depth     Depth of the image in pixels
+    /// @param levels    Mipmap count. Set to 0 to automatically generate full mipmap chain.
+    /// @param alignment Plane alignment requirements.
+    ImageDesc & set3D(PixelFormat format, size_t width, size_t height, size_t depth, size_t levels = 1, ConstructionOrder order = FACE_MAJOR,
+                      size_t alignment = DEFAULT_PLANE_ALIGNMENT);
 
     /// @brief Make a new image descriptor.
     /// This method takes exactly same parameters as ImageDesc::reset() method.
-    static ImageDesc make(const PlaneDesc & baseMap, size_t layers = 1, size_t levels = 1, ConstructionOrder order = FACE_MAJOR,
-                          size_t planeOffsetAlignment = DEFAULT_ALIGNMENT) {
+    static ImageDesc make(const PlaneDesc & baseMap, size_t arrayLength = 1, size_t faces = 1, size_t levels = 1, ConstructionOrder order = FACE_MAJOR,
+                          size_t alignment = DEFAULT_PLANE_ALIGNMENT) {
         ImageDesc d;
-        d.reset(baseMap, layers, levels, order, planeOffsetAlignment);
+        d.reset(baseMap, arrayLength, faces, levels, order, alignment);
         return d;
     }
 
@@ -1401,34 +1437,56 @@ struct RII_API ImageDesc {
     /// methods to return properties of the specific plane.
     //@{
     // clang-format off
-    const PlaneDesc & plane (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)]; }
-    PlaneDesc       & plane (size_t layer = 0, size_t level = 0)       { return planes[index(layer, level)]; }
-    PixelFormat       format(size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].format; }
-    const Extent3D &  extent(size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].extent; }
-    uint32_t          width (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].extent.w; }
-    uint32_t          height(size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].extent.h; }
-    uint32_t          depth (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].extent.d; }
-    uint32_t          step  (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].step; }
-    uint32_t          pitch (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].pitch; }
-    uint32_t          slice (size_t layer = 0, size_t level = 0) const { return planes[index(layer, level)].slice; }
+    const PlaneDesc & plane (const PlaneCoord & c = {}) const { return planes[index(c)]; }
+    PlaneDesc       & plane (const PlaneCoord & c = {})       { return planes[index(c)]; }
+    PixelFormat       format(const PlaneCoord & c = {}) const { return planes[index(c)].format; }
+    const Extent3D &  extent(const PlaneCoord & c = {}) const { return planes[index(c)].extent; }
+    uint32_t          width (const PlaneCoord & c = {}) const { return planes[index(c)].extent.w; }
+    uint32_t          height(const PlaneCoord & c = {}) const { return planes[index(c)].extent.h; }
+    uint32_t          depth (const PlaneCoord & c = {}) const { return planes[index(c)].extent.d; }
+    uint32_t          step  (const PlaneCoord & c = {}) const { return planes[index(c)].step; }
+    uint32_t          pitch (const PlaneCoord & c = {}) const { return planes[index(c)].pitch; }
+    uint32_t          slice (const PlaneCoord & c = {}) const { return planes[index(c)].slice; }
     // clang-format on
     //@}
 
     ///
     /// returns offset of particular pixel
     ///
-    size_t pixel(size_t layer, size_t level, size_t x = 0, size_t y = 0, size_t z = 0) const {
-        const auto & d = planes[index(layer, level)];
+    size_t pixel(const PlaneCoord & c, size_t x = 0, size_t y = 0, size_t z = 0) const {
+        const auto & d = planes[index(c)];
         auto         r = d.pixel(x, y, z);
         RII_ASSERT(r < size);
         return r;
     }
 
-    /// @brief Calculate plane index based on layer and level.
-    size_t index(size_t layer, size_t level) const {
-        RII_ASSERT(layer < layers);
-        RII_ASSERT(level < levels);
-        return (level * layers) + layer;
+    /// @brief Calculate plane index based on it's coordinate.
+    size_t index(size_t a, size_t f, size_t l) const {
+        RII_ASSERT(a < arrayLength);
+        RII_ASSERT(f < faces);
+        RII_ASSERT(l < levels);
+        return a * faces * levels + f * levels + l;
+    }
+
+    /// @brief Calculate plane index based on it's coordinate.
+    size_t index(const PlaneCoord & c) const { return index(c.array, c.face, c.level); }
+
+    /// @brief Calculate plane coordinate based on it's index.
+    PlaneCoord coord(size_t index) const {
+        RII_ASSERT(index < planes.size());
+        size_t a = index / (faces * levels);
+        size_t f = (index / levels) % faces;
+        size_t l = index % levels;
+        return {a, f, l};
+    }
+
+    /// @brief Calculate plane coordinate based on it's index. Return as tuple of 3 indivudual values.
+    std::tuple<size_t, size_t, size_t> coord3(size_t index) const {
+        RII_ASSERT(index < planes.size());
+        size_t a = index / (faces * levels);
+        size_t f = (index / levels) % faces;
+        size_t l = index % levels;
+        return {a, f, l};
     }
 
     struct AlignedDeleter {
@@ -1485,7 +1543,8 @@ struct RII_API ImageDesc {
 
     /// @brief equality operator
     bool operator==(const ImageDesc & rhs) const {
-        return planes == rhs.planes && layers == rhs.layers && levels == rhs.levels && size == rhs.size && alignment == rhs.alignment;
+        return planes == rhs.planes && arrayLength == rhs.arrayLength && faces == rhs.faces && levels == rhs.levels && size == rhs.size &&
+               alignment == rhs.alignment;
     }
 
     /// @brief inequality operator
@@ -1493,7 +1552,8 @@ struct RII_API ImageDesc {
 
     /// @brief less than operator
     bool operator<(const ImageDesc & rhs) const {
-        if (layers != rhs.layers) return layers < rhs.layers;
+        if (arrayLength != rhs.arrayLength) return arrayLength < rhs.arrayLength;
+        if (faces != rhs.faces) return faces < rhs.faces;
         if (levels != rhs.levels) return levels < rhs.levels;
         if (size != rhs.size) return size < rhs.size;
         if (alignment != rhs.alignment) return alignment < rhs.alignment;
@@ -1526,22 +1586,22 @@ struct ImageProxy {
     /// \name query properties of the specific plane.
     //@{
     // clang-format off
-    PixelFormat      format(size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).format; }
-    const Extent3D & extent(size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).extent; }
-    uint32_t         width (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).extent.w; }
-    uint32_t         height(size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).extent.h; }
-    uint32_t         depth (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).extent.d; }
-    uint32_t         step  (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).step; }
-    uint32_t         pitch (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).pitch; }
-    uint32_t         slice (size_t layer = 0, size_t level = 0) const { return desc.plane(layer, level).slice; }
+    PixelFormat      format(const PlaneCoord & c = {}) const { return desc.plane(c).format; }
+    const Extent3D & extent(const PlaneCoord & c = {}) const { return desc.plane(c).extent; }
+    uint32_t         width (const PlaneCoord & c = {}) const { return desc.plane(c).extent.w; }
+    uint32_t         height(const PlaneCoord & c = {}) const { return desc.plane(c).extent.h; }
+    uint32_t         depth (const PlaneCoord & c = {}) const { return desc.plane(c).extent.d; }
+    uint32_t         step  (const PlaneCoord & c = {}) const { return desc.plane(c).step; }
+    uint32_t         pitch (const PlaneCoord & c = {}) const { return desc.plane(c).pitch; }
+    uint32_t         slice (const PlaneCoord & c = {}) const { return desc.plane(c).slice; }
     // clang-format on
     //@}
 
     /// return pointer to particular pixel
-    const uint8_t * pixel(size_t layer, size_t level, size_t x = 0, size_t y = 0, size_t z = 0) const { return data + desc.pixel(layer, level, x, y, z); }
+    const uint8_t * pixel(const PlaneCoord & c, size_t x = 0, size_t y = 0, size_t z = 0) const { return data + desc.pixel(c, x, y, z); }
 
     /// return pointer to particular pixel
-    uint8_t * pixel(size_t layer, size_t level, size_t x = 0, size_t y = 0, size_t z = 0) { return data + desc.pixel(layer, level, x, y, z); }
+    uint8_t * pixel(const PlaneCoord & c, size_t x = 0, size_t y = 0, size_t z = 0) { return data + desc.pixel(c, x, y, z); }
 
     /// Save image to output stream
     void save(const ImageDesc::SaveToStreamParameters & params, std::ostream & stream) const { return desc.save(params, stream, data); }
@@ -1587,7 +1647,7 @@ public:
     const ImageDesc & desc() const { return _proxy.desc; }
 
     /// return descriptor of a image plane
-    const PlaneDesc & plane(size_t layer, size_t level) const { return _proxy.desc.plane(layer, level); }
+    const PlaneDesc & plane(const PlaneCoord & c = {}) const { return _proxy.desc.plane(c); }
 
     /// return pointer to pixel buffer.
     const uint8_t * data() const { return _proxy.data; }
@@ -1606,14 +1666,14 @@ public:
     /// \name query properties of the specific plane.
     //@{
     // clang-format off
-    PixelFormat      format(size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).format; }
-    const Extent3D & extent(size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).extent; }
-    uint32_t         width (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).extent.w; }
-    uint32_t         height(size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).extent.h; }
-    uint32_t         depth (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).extent.d; }
-    uint32_t         step  (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).step; }
-    uint32_t         pitch (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).pitch; }
-    uint32_t         slice (size_t layer = 0, size_t level = 0) const { return _proxy.desc.plane(layer, level).slice; }
+    PixelFormat      format(const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).format; }
+    const Extent3D & extent(const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).extent; }
+    uint32_t         width (const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).extent.w; }
+    uint32_t         height(const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).extent.h; }
+    uint32_t         depth (const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).extent.d; }
+    uint32_t         step  (const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).step; }
+    uint32_t         pitch (const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).pitch; }
+    uint32_t         slice (const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).slice; }
     // clang-format on
     //@}
 
@@ -1672,6 +1732,7 @@ struct hash<RAPID_IMAGE_NAMESPACE::PlaneDesc> {
         h = 79 * h + (size_t) key.slice;
         h = 79 * h + (size_t) key.size;
         h = 79 * h + (size_t) key.offset;
+        h = 70 * h + (size_t) key.alignment;
 
         return h;
     }
@@ -1685,7 +1746,8 @@ struct hash<RAPID_IMAGE_NAMESPACE::ImageDesc> {
         size_t h = 7;
 
         // Hash the members.
-        h = 79 * h + (size_t) key.layers;
+        h = 79 * h + (size_t) key.arrayLength;
+        h = 79 * h + (size_t) key.faces;
         h = 79 * h + (size_t) key.levels;
         h = 79 * h + (size_t) key.size;
 
