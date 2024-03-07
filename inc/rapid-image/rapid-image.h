@@ -1350,7 +1350,7 @@ struct RII_API ImageDesc {
     ImageDesc & clear();
 
     /// Align the planes to 16 bytes by default to be compatible with SSE/AVX instructions.
-    constexpr static uint32_t DEFAULT_PLANE_ALIGNMENT= 16;
+    constexpr static uint32_t DEFAULT_PLANE_ALIGNMENT = 16;
 
     /// @brief Reset the descriptor
     /// @param baseMap     Base map of the image. This is the first plane of the image.

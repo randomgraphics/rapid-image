@@ -60,13 +60,13 @@ TEST_CASE("dxt1-mip-major") {
     REQUIRE(desc.slice({0, 0, 8}) == 8);
     REQUIRE(desc.size == 43704 * 6);
 
-    // check offsets to ensure it is face-major
+    // check offsets to ensure it is mip-major
     REQUIRE(desc.pixel({0, 0, 0}) == 0);
-    REQUIRE(desc.pixel({0, 1, 0}) == desc.pixel({0, 0, 0}) + desc.slice({0, 0, 0}));
-    REQUIRE(desc.pixel({0, 2, 0}) == desc.pixel({0, 1, 0}) + desc.slice({0, 1, 0}));
-    REQUIRE(desc.pixel({0, 3, 0}) == desc.pixel({0, 2, 0}) + desc.slice({0, 2, 0}));
-    REQUIRE(desc.pixel({0, 4, 0}) == desc.pixel({0, 3, 0}) + desc.slice({0, 3, 0}));
-    REQUIRE(desc.pixel({0, 5, 0}) == desc.pixel({0, 4, 0}) + desc.slice({0, 4, 0}));
+    REQUIRE(desc.pixel({0, 0, 1}) == desc.pixel({0, 0, 0}) + desc.slice({0, 0, 0}));
+    REQUIRE(desc.pixel({0, 0, 2}) == desc.pixel({0, 0, 1}) + desc.slice({0, 0, 1}));
+    REQUIRE(desc.pixel({0, 0, 3}) == desc.pixel({0, 0, 2}) + desc.slice({0, 0, 2}));
+    REQUIRE(desc.pixel({0, 0, 4}) == desc.pixel({0, 0, 3}) + desc.slice({0, 0, 3}));
+    REQUIRE(desc.pixel({0, 0, 5}) == desc.pixel({0, 0, 4}) + desc.slice({0, 0, 4}));
 }
 
 TEST_CASE("default-alignment") {
