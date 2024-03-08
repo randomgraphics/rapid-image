@@ -1219,6 +1219,16 @@ struct RII_API PlaneDesc {
     /// @param maxLevels The maximum number of mipmap levels to generate. Set t0 0 to generate full mipmap chain.
     Image generateMipmaps(const void * pixels, size_t maxLevels = 0) const;
 
+    /// @brief Copy image content from one plane to another.
+    /// @param dstDesc          Destination plane descriptor.
+    /// @param dstData          Pointer to the first pixel of the plane.
+    /// @param dstX, dstY, dstZ Offset in the destination plane, in unit of pixels.
+    /// @param srcDesc          Source plane descriptor.
+    /// @param srcX, srcY, srcZ Offset in the source plane, in unit of pixels.
+    /// @param srcW, srcH, srcD Size of the source region to copy, in unit of pixels.
+    static void copyContent(const PlaneDesc & dstDesc, void * dstData, int dstX, int dstY, int dstZ, const PlaneDesc & srcDesc, const void * srcData, int srcX,
+                            int srcY, int srcZ, size_t srcW, size_t srcH, size_t srcD);
+
     bool operator==(const PlaneDesc & rhs) const {
         // clang-format off
         return format == rhs.format

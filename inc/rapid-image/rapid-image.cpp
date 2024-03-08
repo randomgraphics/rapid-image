@@ -84,6 +84,11 @@ RII_API void afree(void * p) {
 #endif
 }
 
+static inline void clamp(int & value, int min_, int max_) {
+    if (value < min_) value = min_;
+    if (value > max_) value = max_;
+}
+
 } // namespace rii_details
 
 // *********************************************************************************************************************
@@ -1038,6 +1043,96 @@ RII_API Image PlaneDesc::generateMipmaps(const void * pixels, size_t maxLevels) 
     }
 
     return result;
+}
+
+void PlaneDesc::copyContent(const PlaneDesc & dstDesc, void * dstData, int dstX, int dstY, int dstZ, const PlaneDesc & srcDesc, const void * srcData, int srcX,
+                            int srcY, int srcZ, size_t srcW, size_t srcH, size_t srcD) {
+    // make sure the source and destination format are compatible.
+    const auto & dstLayout = dstDesc.format.layoutDesc();
+    const auto & srcLayout = srcDesc.format.layoutDesc();
+    if (srcLayout.blockBytes != dstLayout.blockBytes) {
+        RAPID_IMAGE_LOGE("Source and destination pixel block size must be size.");
+        return;
+    }
+
+    // make sure the coordinates and size are alilgned to destination pixel block.
+    if ((dstX % dstLayout.blockWidth) || (dstY % dstLayout.blockHeight)) {
+        RAPID_IMAGE_LOGE("Dest coordinates and source image area must be aligned to the destination pixel block.");
+        return;
+    }
+    if ((srcX % srcLayout.blockWidth) || (srcY % srcLayout.blockHeight)) {
+        RAPID_IMAGE_LOGE("Source coordinates must be aligned to the source pixel block.");
+        return;
+    }
+
+    // Convert the coordinates and size to pixel block coordinates and size.
+    dstX /= dstLayout.blockWidth;
+    dstY /= dstLayout.blockHeight;
+    srcX /= srcLayout.blockWidth;
+    srcY /= srcLayout.blockHeight;
+    srcW = (srcW + srcLayout.blockWidth - 1) / srcLayout.blockWidth;
+    srcH = (srcH + srcLayout.blockHeight - 1) / srcLayout.blockHeight;
+
+    // Clamp source area
+    int sx1   = srcX;
+    int sy1   = srcY;
+    int sz1   = srcZ;
+    int sx2   = sx1 + (int) srcW;
+    int sy2   = sy1 + (int) srcH;
+    int sz2   = sz1 + (int) srcD;
+    int maxSW = (int) ((srcDesc.extent.w + srcLayout.blockWidth - 1) / srcLayout.blockWidth);
+    int maxSH = (int) ((srcDesc.extent.h + srcLayout.blockHeight - 1) / srcLayout.blockHeight);
+    rii_details::clamp(sx1, 0, maxSW);
+    rii_details::clamp(sy1, 0, maxSH);
+    rii_details::clamp(sz1, 0, (int) srcDesc.extent.d);
+    rii_details::clamp(sx2, 0, maxSW);
+    rii_details::clamp(sy2, 0, maxSH);
+    rii_details::clamp(sz2, 0, (int) srcDesc.extent.d);
+    if (sx1 >= sx2 || sy1 >= sy2 || sz1 >= sz2) {
+        //"Source area is empty
+        return;
+    }
+
+    // Then clamp the destination area
+    int dx1   = dstX + (sx1 - srcX);
+    int dy1   = dstY + (sy1 - srcY);
+    int dz1   = dstZ + (sz1 - srcZ);
+    int dx2   = dx1 + (sx2 - sx1);
+    int dy2   = dy1 + (sy2 - sy1);
+    int dz2   = dz1 + (sz2 - sz1);
+    int maxDW = (int) ((dstDesc.extent.w + dstLayout.blockWidth - 1) / dstLayout.blockWidth);
+    int maxDH = (int) ((dstDesc.extent.h + dstLayout.blockHeight - 1) / dstLayout.blockHeight);
+    rii_details::clamp(dx1, 0, maxDW);
+    rii_details::clamp(dy1, 0, maxDH);
+    rii_details::clamp(dz1, 0, (int) dstDesc.extent.d);
+    rii_details::clamp(dx2, 0, maxDW);
+    rii_details::clamp(dy2, 0, maxDH);
+    rii_details::clamp(dz2, 0, (int) dstDesc.extent.d);
+    if (dx1 >= dx2 || dy1 >= dy2 || dz1 >= dz2) {
+        //"Destination area is empty
+        return;
+    }
+
+    // readjust the source coordinate and size to match the destination area.
+    sx1 = srcX + (dx1 - dstX);
+    sy1 = srcY + (dy1 - dstY);
+    sz1 = srcZ + (dz1 - dstZ);
+    sx2 = sx1 + (dx2 - dx1);
+    sy2 = sy1 + (dy2 - dy1);
+    sz2 = sz1 + (dz2 - dz1);
+    RII_ASSERT(sx1 < sx2 && sy1 < sy2 && sz1 < sz2);
+
+    // copy the content row by row.
+    size_t rowLength = (size_t) (sx2 - sx1) * srcLayout.blockBytes;
+    for (int z = dz1; z <= dz2; ++z) {
+        for (int y = dy1; y <= dy2; ++y) {
+            auto srcOffset = srcDesc.pixel((size_t) sx1, (size_t) y, (size_t) z) - srcDesc.offset;
+            auto dstOffset = dstDesc.pixel((size_t) dx1, (size_t) y, (size_t) z) - dstDesc.offset;
+            RII_ASSERT((srcOffset + rowLength) <= srcDesc.size);
+            RII_ASSERT((dstOffset + rowLength) <= dstDesc.size);
+            memcpy((uint8_t *) dstData + dstOffset, (uint8_t *) srcData + srcOffset, rowLength);
+        }
+    }
 }
 
 // *********************************************************************************************************************
