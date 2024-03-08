@@ -114,6 +114,44 @@ TEST_CASE("dds") {
     REQUIRE(p0.w == 255);
 }
 
+TEST_CASE("copy") {
+    union RG8 {
+        struct {
+            uint8_t r, g;
+        };
+        uint16_t u16;
+    };
+
+    // Create a source 8x8 image
+    auto  srcImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::RG_8_8_UNORM(), {8, 8, 1})));
+    auto  src      = srcImage.plane();
+    RG8 * srcData  = (RG8 *) srcImage.data();
+    for (int i = 0; i < 64; i++) {
+        int x        = i % 8;
+        int y        = i / 8;
+        srcData[i].r = (uint8_t) x;
+        srcData[i].g = (uint8_t) y;
+    }
+
+    // Create a blank 4x4 image as destination.
+    auto       dstImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::R_16_UINT(), {4, 4, 1})));
+    auto       dst      = dstImage.plane();
+    uint16_t * dstData  = (uint16_t *) dstImage.data();
+    for (int i = 0; i < 16; i++) { dstData[i] = 0; }
+
+    // case 1, copy from 8x8 to 4x4, the result should be 4x4 pixels of the source image from [1,1] to [5,5].
+    SECTION("case 1") {
+        PlaneDesc::copyContent(dst, dstData, -1, -1, 0, src, srcData, 0, 0, 0, 8, 8, 1);
+        for (int i = 0; i < 16; i++) {
+            int dx = i % 4;
+            int dy = i / 4;
+            int sx = dx + 1;
+            int sy = dy + 1;
+            CHECK(dstData[i] == srcData[sy * 8 + sx].u16);
+        }
+    }
+}
+
 // TEST_CASE("save-to-png") {
 //     auto path1 = (std::filesystem::path(TEST_FOLDER) / "alien-planet.jpg").string();
 //     PH_LOGI("load image from file: %s", path1.c_str());
