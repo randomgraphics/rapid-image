@@ -841,7 +841,10 @@ RII_API PlaneDesc PlaneDesc::make(PixelFormat format, const Extent3D & extent, s
 // ---------------------------------------------------------------------------------------------------------------------
 /// @brief Calculate next multiple of a number.
 static constexpr inline uint32_t nextMultiple(uint32_t value, uint32_t multiple) {
-    if (0 == multiple) [[unlikely]]
+    if (0 == multiple)
+#if __cplusplus >= 202002L
+        [[unlikely]]
+#endif
         multiple = 1;
     return value + (multiple - value % multiple) % multiple;
 }
@@ -1124,8 +1127,8 @@ void PlaneDesc::copyContent(const PlaneDesc & dstDesc, void * dstData, int dstX,
 
     // copy the content row by row.
     size_t rowLength = (size_t) (sx2 - sx1) * srcLayout.blockBytes;
-    for (int z = dz1; z <= dz2; ++z) {
-        for (int y = dy1; y <= dy2; ++y) {
+    for (int z = dz1; z < dz2; ++z) {
+        for (int y = dy1; y < dy2; ++y) {
             auto srcOffset = srcDesc.pixel((size_t) sx1, (size_t) y, (size_t) z) - srcDesc.offset;
             auto dstOffset = dstDesc.pixel((size_t) dx1, (size_t) y, (size_t) z) - dstDesc.offset;
             RII_ASSERT((srcOffset + rowLength) <= srcDesc.size);
