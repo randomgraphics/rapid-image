@@ -498,6 +498,7 @@ RII_API std::string PixelFormat::toString() const {
                 "LAYOUT_10_10_10_2",
                 "LAYOUT_16",
                 "LAYOUT_16_16",
+                "LAYOUT_16_16_16",
                 "LAYOUT_16_16_16_16",
                 "LAYOUT_32",
                 "LAYOUT_32_32",
