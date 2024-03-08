@@ -1127,8 +1127,10 @@ void PlaneDesc::copyContent(const PlaneDesc & dstDesc, void * dstData, int dstX,
 
     // copy the content row by row.
     size_t rowLength = (size_t) (sx2 - sx1) * srcLayout.blockBytes;
-    for (int z = 0; z < (sz2 - sz1); ++z) {
-        for (int y = 0; y < (sy2 - sy1); ++y) {
+    auto   nz        = sz2 - sz1;
+    auto   ny        = sy2 - sy1;
+    for (int z = 0; z < nz; ++z) {
+        for (int y = 0; y < ny; ++y) {
             auto srcOffset = srcDesc.pixel((size_t) sx1, (size_t) (y + sy1), (size_t) (z + sz1)) - srcDesc.offset;
             auto dstOffset = dstDesc.pixel((size_t) dx1, (size_t) (y + dy1), (size_t) (z + dz1)) - dstDesc.offset;
             RII_ASSERT((srcOffset + rowLength) <= srcDesc.size);
