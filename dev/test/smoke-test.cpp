@@ -115,34 +115,39 @@ TEST_CASE("dds") {
 }
 
 TEST_CASE("copy") {
-    struct RG8 {
-        uint8_t r, g;
+    union RG8 {
+        struct {
+            uint8_t r, g;
+        };
+        uint16_t u16;
     };
 
     // Create a source 8x8 image
     auto  srcImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::RG_8_8_UNORM(), {8, 8, 1})));
     auto  src      = srcImage.plane();
     RG8 * srcData  = (RG8 *) srcImage.data();
-    for (uint8_t i = 0; i < 64; i++) {
-        uint8_t x    = i % 8;
-        uint8_t y    = i / 8;
-        srcData[i].r = x;
-        srcData[i].g = y;
+    for (int i = 0; i < 64; i++) {
+        int x        = i % 8;
+        int y        = i / 8;
+        srcData[i].r = (uint8_t) x;
+        srcData[i].g = (uint8_t) y;
     }
 
     // Create a blank 4x4 image as destination.
     auto       dstImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::R_16_UINT(), {4, 4, 1})));
     auto       dst      = dstImage.plane();
     uint16_t * dstData  = (uint16_t *) dstImage.data();
-    memset(dstData, 0, dst.size);
+    for (int i = 0; i < 16; i++) { dstData[i] = 0; }
 
-    // case 1, copy from 8x8 to 4x4, the result should be the top-left 4x4 pixels of the source image.
+    // case 1, copy from 8x8 to 4x4, the result should be 4x4 pixels of the source image from [1,1] to [5,5].
     SECTION("case 1") {
-        PlaneDesc::copyContent(dst, dstData, 0, 0, 0, src, srcData, 0, 0, 0, 8, 8, 1);
-        for (uint8_t i = 0; i < 16; i++) {
-            uint8_t x = i % 4;
-            uint8_t y = i / 4;
-            CHECK(dstData[i] == x + y * 256);
+        PlaneDesc::copyContent(dst, dstData, -1, -1, 0, src, srcData, 0, 0, 0, 8, 8, 1);
+        for (int i = 0; i < 16; i++) {
+            int dx = i % 4;
+            int dy = i / 4;
+            int sx = dx + 1;
+            int sy = dy + 1;
+            CHECK(dstData[i] == srcData[sy * 8 + sx].u16);
         }
     }
 }
