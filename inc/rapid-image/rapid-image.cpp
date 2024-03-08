@@ -1241,18 +1241,9 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromRIL(std::istream & stream, const 
 // ---------------------------------------------------------------------------------------------------------------------
 //
 static void saveToRIL(const ImageDesc & desc, std::ostream & stream, const void * pixels) {
-    if (desc.empty() || !desc.valid()) {
-        RAPID_IMAGE_LOGE("Can't save empty or invalid image.");
-        return;
-    }
-    if (!stream) {
-        RAPID_IMAGE_LOGE("failed to write image to stream: stream is not good.");
-        return;
-    }
-    if (!pixels) {
-        RAPID_IMAGE_LOGE("failed to write image to stream: pixel array is null.");
-        return;
-    }
+    if (desc.empty() || !desc.valid()) { RII_THROW("Can't save empty or invalid image."); }
+    if (!stream) { RII_THROW("failed to write image to stream: stream is not good."); }
+    if (!pixels) { RII_THROW("failed to write image to stream: pixel array is null."); }
 
     auto planeArraySize = desc.planes.size() * sizeof(PlaneDesc);
 
@@ -1842,6 +1833,7 @@ ImageDesc::AlignedUniquePtr ImageDesc::load(const void * data_, size_t size_, co
 // ---------------------------------------------------------------------------------------------------------------------
 //
 void ImageDesc::save(const SaveToStreamParameters & params, std::ostream & stream, const void * pixels) const {
+    if (!stream) { RII_THROW("failed to save image to stream: the output stream is not in good state."); }
     switch (params.format) {
     case RIL:
         saveToRIL(*this, stream, pixels);
@@ -1852,32 +1844,34 @@ void ImageDesc::save(const SaveToStreamParameters & params, std::ostream & strea
     case PNG:
     case JPG:
     case BMP: {
-        if (arrayLength > 1 || faces > 1 || levels > 1) {
-            RAPID_IMAGE_LOGE("Can't save images with multiple layers and/or mipmaps to PNG/JPG/BMP format.");
-            return;
-        }
+        if (arrayLength > 1 || faces > 1 || levels > 1) { RII_THROW("Can't save images with multiple layers and/or mipmaps to PNG/JPG/BMP format."); }
 #ifdef INCLUDE_STB_IMAGE_WRITE_H
         stbi_write_func * write = [](void * context, void * data, int size_) {
             auto fp = (std::ofstream *) context;
             fp->write((const char *) data, size_);
         };
-        if (PNG == params.format)
-            stbi_write_png_to_func(write, &stream, (int) width(), (int) height(), 4, pixels, 0);
-        else if (JPG == params.format)
-            stbi_write_jpg_to_func(write, &stream, (int) width(), (int) height(), 4, pixels, 0);
-        else if (BMP == params.format)
-            stbi_write_bmp_to_func(write, &stream, (int) width(), (int) height(), 4, pixels);
-        else
-            RII_ASSERT(false);
-#else
-        RAPID_IMAGE_LOGE("Saving to PNG/JPG/BMP format requires stb_image_write.h being included before rapid-image.h");
-#endif
+        if (PNG == params.format) {
+            if (!stbi_write_png_to_func(write, &stream, (int) width(), (int) height(), 4, pixels, 0)) {
+                RII_THROW("failed to save image to stream: stbi_write_png_to_func failed.");
+            }
+        } else if (JPG == params.format) {
+            if (!stbi_write_jpg_to_func(write, &stream, (int) width(), (int) height(), 4, pixels, 0)) {
+                RII_THROW("failed to save image to stream: stbi_write_jpg_to_func failed.");
+            }
+        } else {
+            if (!stbi_write_bmp_to_func(write, &stream, (int) width(), (int) height(), 4, pixels)) {
+                RII_THROW("failed to save image to stream: stbi_write_bmp_to_func failed.");
+            }
+        }
         break;
+#else
+        RII_THROW("Saving to PNG/JPG/BMP format requires stb_image_write.h being included before rapid-image.h");
+#endif
     }
     default:
-        RAPID_IMAGE_LOGE("failed to save image to stream: unknown format %d", params.format);
-        break;
+        RII_THROW("failed to save image to stream: unknown format %d", params.format);
     }
+    if (!stream) { RII_THROW("failed to save image to stream: the output stream is not in good state."); }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1886,10 +1880,7 @@ void ImageDesc::save(const std::string & filename, const void * pixels) const {
     // lambda to open file stream
     auto openFileStream = [&]() -> std::ofstream {
         std::ofstream file(filename, std::ios::binary);
-        if (!file) {
-            RAPID_IMAGE_LOGE("failed to open file %s for writing.", filename.c_str());
-            return {};
-        }
+        if (!file) { RII_THROW("failed to open file %s for writing.", filename.c_str()); }
         return file;
     };
 
@@ -1898,29 +1889,24 @@ void ImageDesc::save(const std::string & filename, const void * pixels) const {
     std::transform(ext.begin(), ext.end(), ext.begin(), [](char c) { return (char) tolower(c); });
     if (".ril" == ext) {
         auto file = openFileStream();
-        if (!file) return;
         save({RIL}, file, pixels);
     } else if (".dds" == ext) {
         auto file = openFileStream();
-        if (!file) return;
         save({DDS}, file, pixels);
     } else if (".png" == ext || ".jpg" == ext || ".jpeg" == ext || ".bmp" == ext) {
 #ifdef INCLUDE_STB_IMAGE_WRITE_H
         auto file = openFileStream();
-        if (!file) return;
         if (".png" == ext)
             save({PNG}, file, pixels);
         else if (".jpg" == ext || ".jpeg" == ext)
             save({JPG}, file, pixels);
-        else if ("bmp" == ext)
-            save({BMP}, file, pixels);
         else
-            RII_ASSERT(false);
+            save({BMP}, file, pixels);
 #else
-        RAPID_IMAGE_LOGE("Saving to PNG/JPG/BMP format requires stb_image_write.h being included before rapid-image.h");
+        RII_THROW("Saving to PNG/JPG/BMP format requires stb_image_write.h being included before rapid-image.h");
 #endif
     } else {
-        RAPID_IMAGE_LOGE("Unsupported file extension: %s", ext.c_str());
+        RII_THROW("Unsupported file extension: %s", ext.c_str());
     }
 }
 
