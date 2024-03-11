@@ -42,7 +42,7 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 6
+#define RAPID_IMAGE_HEADER_REVISION 7
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
@@ -1247,9 +1247,10 @@ struct RII_API PlaneDesc {
 
     /// @brief Copy image content from one plane to another.
     /// @param dstDesc          Destination plane descriptor.
-    /// @param dstData          Pointer to the first pixel of the plane.
+    /// @param dstData          Pointer to the first pixel of the plane. The length of the buffer must be at least dstDesc.size.
     /// @param dstX, dstY, dstZ Offset in the destination plane, in unit of pixels.
     /// @param srcDesc          Source plane descriptor.
+    /// @param srcData          Pointer to the first pixel of the plane. The length of the buffer must be at least srcDesc.size.
     /// @param srcX, srcY, srcZ Offset in the source plane, in unit of pixels.
     /// @param srcW, srcH, srcD Size of the source region to copy, in unit of pixels.
     static void copyContent(const PlaneDesc & dstDesc, void * dstData, int dstX, int dstY, int dstZ, const PlaneDesc & srcDesc, const void * srcData, int srcX,

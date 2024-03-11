@@ -1055,7 +1055,8 @@ void PlaneDesc::copyContent(const PlaneDesc & dstDesc, void * dstData, int dstX,
     const auto & dstLayout = dstDesc.format.layoutDesc();
     const auto & srcLayout = srcDesc.format.layoutDesc();
     if (srcLayout.blockBytes != dstLayout.blockBytes) {
-        RAPID_IMAGE_LOGE("Source and destination pixel block size must be size.");
+        RAPID_IMAGE_LOGE("Can't copy content between planes with different pixel size: source = %u, destination = %u", srcLayout.blockBytes,
+                         dstLayout.blockBytes);
         return;
     }
 
@@ -1117,6 +1118,11 @@ void PlaneDesc::copyContent(const PlaneDesc & dstDesc, void * dstData, int dstX,
         return;
     }
 
+    if (0 == dstData || 0 == srcData) {
+        RAPID_IMAGE_LOGE("Source or destination data is null.");
+        return;
+    }
+
     // readjust the source coordinate and size to match the destination area.
     sx1 = srcX + (dx1 - dstX);
     sy1 = srcY + (dy1 - dstY);
@@ -1134,7 +1140,9 @@ void PlaneDesc::copyContent(const PlaneDesc & dstDesc, void * dstData, int dstX,
         for (int y = 0; y < ny; ++y) {
             auto srcOffset = srcDesc.pixel((size_t) sx1, (size_t) (y + sy1), (size_t) (z + sz1)) - srcDesc.offset;
             auto dstOffset = dstDesc.pixel((size_t) dx1, (size_t) (y + dy1), (size_t) (z + dz1)) - dstDesc.offset;
+            RII_ASSERT(srcOffset <= srcDesc.size);
             RII_ASSERT((srcOffset + rowLength) <= srcDesc.size);
+            RII_ASSERT(dstOffset <= dstDesc.size);
             RII_ASSERT((dstOffset + rowLength) <= dstDesc.size);
             memcpy((uint8_t *) dstData + dstOffset, (uint8_t *) srcData + srcOffset, rowLength);
         }
@@ -1661,7 +1669,7 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t arrayLength_, siz
     // setup alignment
     if (0 == alignment_) alignment_ = baseMap.alignment;
     if ((alignment_ % baseMap.alignment) != 0) {
-        RAPID_IMAGE_LOGE("ImageDesc reset failed: plane alignment must be multiple of row alignment.");
+        RAPID_IMAGE_LOGE("ImageDesc reset failed: image alignment (%zu) must be multiple of plane alignment (%u).", alignment_, baseMap.alignment);
         return *this;
     }
     if (0 == arrayLength_) arrayLength_ = 1;
