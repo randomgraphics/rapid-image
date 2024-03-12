@@ -1812,21 +1812,26 @@ void ImageDesc::save(const SaveToStreamParameters & params, std::ostream & strea
     case JPG:
     case BMP: {
         if (arrayLength > 1 || faces > 1 || levels > 1) { RII_THROW("Can't save images with multiple layers and/or mipmaps to PNG/JPG/BMP format."); }
+        const auto & fd = format().layoutDesc();
+        if (fd.blockWidth > 1 || fd.blockHeight > 1) { RII_THROW("Can't save block compressed images to PNG/JPG/BMP format."); }
 #ifdef INCLUDE_STB_IMAGE_WRITE_H
         stbi_write_func * write = [](void * context, void * data, int size_) {
             auto fp = (std::ofstream *) context;
             fp->write((const char *) data, size_);
         };
         if (PNG == params.format) {
-            if (!stbi_write_png_to_func(write, &stream, (int) width(), (int) height(), 4, pixels, 0)) {
+            if (fd.channels[0].bits != 8 || fd.channels[0].bits != 16) { RII_THROW("Can only save images with 8 or 16 bits channels to PNG format."); }
+            if (!stbi_write_png_to_func(write, &stream, (int) width(), (int) height(), fd.numChannels, pixels, 0)) {
                 RII_THROW("failed to save image to stream: stbi_write_png_to_func failed.");
             }
         } else if (JPG == params.format) {
-            if (!stbi_write_jpg_to_func(write, &stream, (int) width(), (int) height(), 4, pixels, 0)) {
+            if (fd.channels[0].bits != 8) { RII_THROW("Can only save images with 8 bits channels to JPG format."); }
+            if (!stbi_write_jpg_to_func(write, &stream, (int) width(), (int) height(), fd.numChannels, pixels, 0)) {
                 RII_THROW("failed to save image to stream: stbi_write_jpg_to_func failed.");
             }
         } else {
-            if (!stbi_write_bmp_to_func(write, &stream, (int) width(), (int) height(), 4, pixels)) {
+            if (fd.channels[0].bits != 8) { RII_THROW("Can only save images with 8 bits channels to JPG format."); }
+            if (!stbi_write_bmp_to_func(write, &stream, (int) width(), (int) height(), fd.numChannels, pixels)) {
                 RII_THROW("failed to save image to stream: stbi_write_bmp_to_func failed.");
             }
         }
