@@ -152,6 +152,12 @@ TEST_CASE("copy") {
     }
 }
 
+TEST_CASE("astc-smoke", "[astc]") {
+    auto     plane          = PlaneDesc::make(PixelFormat::ASTC_6x6_UNORM(), {256, 256, 1});
+    uint32_t compressedSize = ((256 + 5) / 6) * ((256 + 5) / 6) * 16; // ASTC block is always 16 bytes (128 bits)
+    CHECK(compressedSize == plane.size);
+}
+
 // TEST_CASE("save-to-png") {
 //     auto path1 = (std::filesystem::path(TEST_FOLDER) / "alien-planet.jpg").string();
 //     PH_LOGI("load image from file: %s", path1.c_str());
