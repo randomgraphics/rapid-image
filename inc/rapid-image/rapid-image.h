@@ -42,7 +42,7 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 7
+#define RAPID_IMAGE_HEADER_REVISION 8
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
