@@ -152,6 +152,65 @@ TEST_CASE("copy") {
     }
 }
 
+TEST_CASE("copy-uncompressed") {
+    uint32_t w = 2;
+    uint32_t h = 2;
+    uint32_t b = 4; // bytes per pixel block
+
+    // Create a source 8x8 image
+    auto srcImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA_8_8_8_8_UNORM(), {w, h, 1})));
+    auto src      = srcImage.plane();
+    auto srcData  = (uint32_t *) srcImage.data();
+    for (uint32_t i = 0; i < srcImage.size() / 4; i++) { srcData[i] = i; }
+
+    // Create a blank 8x8 image as destination.
+    auto dstImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA_8_8_8_8_UNORM(), {w, h, 1})));
+    auto dst      = dstImage.plane();
+    auto dstData  = (uint32_t *) dstImage.data();
+    for (uint32_t i = 0; i < dstImage.size() / 4; i++) { dstData[i] = 0; }
+
+    // source and destination should be identical after the copy.
+    PlaneDesc::copyContent(dst, dstData, 0, 0, 0, src, srcData, 0, 0, 0, w, h, 1);
+    auto pitch  = dstImage.pitch();
+    auto height = dstImage.size() / pitch;
+    for (uint32_t y = 0; y < height; y++) {
+        for (uint32_t x = 0; x < (w * b) / 4; x++) {
+            INFO(rii_details::format("compare data at row %u offset %u", y, x));
+            REQUIRE(dstData[y * pitch + x] == srcData[y * pitch + x]);
+        }
+    }
+}
+
+TEST_CASE("copy-compressed") {
+    uint32_t w = 4;
+    uint32_t h = 4;
+    uint32_t b = 8; // bytes per pixel block
+
+    // Create a source 8x8 conpressed image
+    auto srcImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {w, h, 1})));
+    auto src      = srcImage.plane();
+    auto srcData  = (uint32_t *) srcImage.data();
+    for (uint32_t i = 0; i < srcImage.size() / 4; i++) { srcData[i] = i; }
+
+    // Create a blank 8x8 image as destination.
+    auto dstImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {w, h, 1})));
+    auto dst      = dstImage.plane();
+    auto dstData  = (uint32_t *) dstImage.data();
+    for (uint32_t i = 0; i < dstImage.size() / 4; i++) { dstData[i] = 0; }
+
+    // source and destination should be identical after the copy.
+    PlaneDesc::copyContent(dst, dstData, 0, 0, 0, src, srcData, 0, 0, 0, w, h, 1);
+    auto pitch = dstImage.pitch();
+    auto hb    = dstImage.size() / pitch; // height in blocks
+    auto wb    = (w + 3) / 4;             // width in blocks
+    for (uint32_t y = 0; y < hb; y++) {
+        for (uint32_t x = 0; x < wb * b / 4; x++) {
+            INFO(rii_details::format("compare data at row %u offset %u", y, x));
+            REQUIRE(dstData[y * pitch + x] == srcData[y * pitch + x]);
+        }
+    }
+}
+
 TEST_CASE("astc-smoke", "[astc]") {
     auto     plane          = PlaneDesc::make(PixelFormat::ASTC_6x6_UNORM(), {256, 256, 1});
     uint32_t compressedSize = ((256 + 5) / 6) * ((256 + 5) / 6) * 16; // ASTC block is always 16 bytes (128 bits)

@@ -501,6 +501,7 @@ RII_API std::string PixelFormat::toString() const {
                 "LAYOUT_DXT5A",       "LAYOUT_DXN",
                 "LAYOUT_CTX1",        "LAYOUT_DXT3A_AS_1_1_1_1",
                 "LAYOUT_GRGB",        "LAYOUT_RGBG",
+                "LAYOUT_ETC2",        "LAYOUT_ETC2_EAC",
                 "LAYOUT_ASTC_4x4",    "LAYOUT_ASTC_5x4",
                 "LAYOUT_ASTC_5x5",    "LAYOUT_ASTC_6x5",
                 "LAYOUT_ASTC_6x6",    "LAYOUT_ASTC_8x5",
@@ -1095,10 +1096,12 @@ void PlaneDesc::copyContent(const PlaneDesc & dstDesc, void * dstData, int dstX,
     size_t rowLength = (size_t) (sx2 - sx1) * srcLayout.blockBytes;
     auto   nz        = sz2 - sz1;
     auto   ny        = sy2 - sy1;
+    auto   bw        = dstLayout.blockWidth;
+    auto   bh        = dstLayout.blockHeight;
     for (int z = 0; z < nz; ++z) {
         for (int y = 0; y < ny; ++y) {
-            auto srcOffset = srcDesc.pixel((size_t) sx1, (size_t) (y + sy1), (size_t) (z + sz1)) - srcDesc.offset;
-            auto dstOffset = dstDesc.pixel((size_t) dx1, (size_t) (y + dy1), (size_t) (z + dz1)) - dstDesc.offset;
+            auto srcOffset = srcDesc.pixel(((size_t) sx1 * bw), ((size_t) (y + sy1) * bh), (size_t) (z + sz1)) - srcDesc.offset;
+            auto dstOffset = dstDesc.pixel(((size_t) dx1 * bw), ((size_t) (y + dy1) * bh), (size_t) (z + dz1)) - dstDesc.offset;
             RII_ASSERT(srcOffset <= srcDesc.size);
             RII_ASSERT((srcOffset + rowLength) <= srcDesc.size);
             RII_ASSERT(dstOffset <= dstDesc.size);
@@ -1662,10 +1665,10 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t arrayLength_, siz
             PlaneDesc mip = baseMap;
             for (uint32_t m = 0; m < levels_; ++m) {
                 for (size_t f = 0; f < faces; ++f) {
-                    mip.offset               = offset;
+                    mip.offset               = nextMultiple(offset, alignment);
                     planes[index({a, f, m})] = mip;
-                    offset                   = nextMultiple(mip.size + mip.offset, alignment);
-                    RII_ASSERT(0 == (offset % alignment));
+                    offset                   = mip.size + mip.offset;
+                    RII_ASSERT(0 == (mip.offset % alignment));
                 }
                 // next level
                 if (mip.extent.w > 1) mip.extent.w >>= 1;
@@ -1680,9 +1683,9 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t arrayLength_, siz
             for (uint32_t f = 0; f < faces; ++f) {
                 PlaneDesc mip = baseMap;
                 for (uint32_t m = 0; m < levels; ++m) {
-                    mip.offset             = offset;
+                    mip.offset             = nextMultiple(offset, alignment);
                     planes[index(a, f, m)] = mip;
-                    offset                 = nextMultiple(mip.offset + mip.size, alignment);
+                    offset                 = mip.offset + mip.size;
                     // next level
                     if (mip.extent.w > 1) mip.extent.w >>= 1;
                     if (mip.extent.h > 1) mip.extent.h >>= 1;
