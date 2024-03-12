@@ -42,7 +42,7 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 8
+#define RAPID_IMAGE_HEADER_REVISION 9
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
@@ -1184,7 +1184,7 @@ struct RII_API PlaneDesc {
     PlaneDesc & setSpacing(size_t step_, size_t pitch_ = 0, size_t slice_ = 0, size_t alignment = 4);
 
     /// returns offset from start of data buffer for a particular pixel within the plane
-    size_t pixel(size_t x, size_t y, size_t z = 0) const {
+    size_t pixel(size_t x = 0, size_t y = 0, size_t z = 0) const {
         RII_ASSERT(x < extent.w && y < extent.h && z < extent.d);
         auto & ld = format.layoutDesc();
         RII_ASSERT((x % ld.blockWidth) == 0 && (y % ld.blockHeight) == 0);
@@ -1253,7 +1253,7 @@ struct RII_API PlaneDesc {
     }
 };
 
-/// @brief A 3D coordinate that defines locaton of a plane in a image.
+/// @brief A 3D coordinate that defines location of a plane in a image.
 struct PlaneCoord {
     size_t array = 0;
     size_t face  = 0;
@@ -1282,7 +1282,7 @@ struct RII_API ImageDesc {
         ///     array 0, face 5, mip 1
         ///     array 0, face 5, mip 2
         ///
-        ///     ... repeat for all elemnts in the image array.
+        ///     ... repeat for all elements in the image array.
         ///
         /// Note: this is the order used by DDS file.
         FACE_MAJOR,
@@ -1317,7 +1317,7 @@ struct RII_API ImageDesc {
 
     /// @brief Image plane array.
     /// Length of the array should always be (levels * faces * arrayLength).
-    /// The plane array is indexed by a 3D cooridnate defined as [a, f, l], where a is the array index, f is the face index, l is the mipmap level.
+    /// The plane array is indexed by a 3D coordinate defined as [a, f, l], where a is the array index, f is the face index, l is the mipmap level.
     /// The plane index = a * levels * faces + f * levels + l.
     /// You can also deduce [a, f, l] coordinate from the plane index in the following way:
     ///     a = planeIndex / (levels * faces)
@@ -1444,24 +1444,24 @@ struct RII_API ImageDesc {
     /// methods to return properties of the specific plane.
     //@{
     // clang-format off
-    const PlaneDesc & plane (const PlaneCoord & c = {}) const { return planes[index(c)]; }
-    PlaneDesc       & plane (const PlaneCoord & c = {})       { return planes[index(c)]; }
-    PixelFormat       format(const PlaneCoord & c = {}) const { return planes[index(c)].format; }
-    const Extent3D &  extent(const PlaneCoord & c = {}) const { return planes[index(c)].extent; }
-    uint32_t          width (const PlaneCoord & c = {}) const { return planes[index(c)].extent.w; }
-    uint32_t          height(const PlaneCoord & c = {}) const { return planes[index(c)].extent.h; }
-    uint32_t          depth (const PlaneCoord & c = {}) const { return planes[index(c)].extent.d; }
-    uint32_t          step  (const PlaneCoord & c = {}) const { return planes[index(c)].step; }
-    uint32_t          pitch (const PlaneCoord & c = {}) const { return planes[index(c)].pitch; }
-    uint32_t          slice (const PlaneCoord & c = {}) const { return planes[index(c)].slice; }
+    const PlaneDesc & plane (const PlaneCoord & p = {}) const { return planes[index(p)]; }
+    PlaneDesc       & plane (const PlaneCoord & p = {})       { return planes[index(p)]; }
+    PixelFormat       format(const PlaneCoord & p = {}) const { return planes[index(p)].format; }
+    const Extent3D &  extent(const PlaneCoord & p = {}) const { return planes[index(p)].extent; }
+    uint32_t          width (const PlaneCoord & p = {}) const { return planes[index(p)].extent.w; }
+    uint32_t          height(const PlaneCoord & p = {}) const { return planes[index(p)].extent.h; }
+    uint32_t          depth (const PlaneCoord & p = {}) const { return planes[index(p)].extent.d; }
+    uint32_t          step  (const PlaneCoord & p = {}) const { return planes[index(p)].step; }
+    uint32_t          pitch (const PlaneCoord & p = {}) const { return planes[index(p)].pitch; }
+    uint32_t          slice (const PlaneCoord & p = {}) const { return planes[index(p)].slice; }
     // clang-format on
     //@}
 
     ///
     /// returns offset of particular pixel
     ///
-    size_t pixel(const PlaneCoord & c, size_t x = 0, size_t y = 0, size_t z = 0) const {
-        const auto & d = planes[index(c)];
+    size_t pixel(const PlaneCoord & p = {}, size_t x = 0, size_t y = 0, size_t z = 0) const {
+        const auto & d = planes[index(p)];
         auto         r = d.pixel(x, y, z);
         RII_ASSERT(r < size);
         return r;
@@ -1476,7 +1476,7 @@ struct RII_API ImageDesc {
     }
 
     /// @brief Calculate plane index based on it's coordinate.
-    size_t index(const PlaneCoord & c) const { return index(c.array, c.face, c.level); }
+    size_t index(const PlaneCoord & p) const { return index(p.array, p.face, p.level); }
 
     /// @brief Calculate plane coordinate based on it's index.
     PlaneCoord coord(size_t index) const {
@@ -1487,7 +1487,7 @@ struct RII_API ImageDesc {
         return {a, f, l};
     }
 
-    /// @brief Calculate plane coordinate based on it's index. Return as tuple of 3 indivudual values.
+    /// @brief Calculate plane coordinate based on it's index. Return as tuple of 3 individual values.
     std::tuple<size_t, size_t, size_t> coord3(size_t index) const {
         RII_ASSERT(index < planes.size());
         size_t a = index / (faces * levels);
@@ -1593,22 +1593,25 @@ struct ImageProxy {
     /// \name query properties of the specific plane.
     //@{
     // clang-format off
-    PixelFormat      format(const PlaneCoord & c = {}) const { return desc.plane(c).format; }
-    const Extent3D & extent(const PlaneCoord & c = {}) const { return desc.plane(c).extent; }
-    uint32_t         width (const PlaneCoord & c = {}) const { return desc.plane(c).extent.w; }
-    uint32_t         height(const PlaneCoord & c = {}) const { return desc.plane(c).extent.h; }
-    uint32_t         depth (const PlaneCoord & c = {}) const { return desc.plane(c).extent.d; }
-    uint32_t         step  (const PlaneCoord & c = {}) const { return desc.plane(c).step; }
-    uint32_t         pitch (const PlaneCoord & c = {}) const { return desc.plane(c).pitch; }
-    uint32_t         slice (const PlaneCoord & c = {}) const { return desc.plane(c).slice; }
+    PixelFormat      format(const PlaneCoord & p = {}) const { return desc.plane(p).format; }
+    const Extent3D & extent(const PlaneCoord & p = {}) const { return desc.plane(p).extent; }
+    uint32_t         width (const PlaneCoord & p = {}) const { return desc.plane(p).extent.w; }
+    uint32_t         height(const PlaneCoord & p = {}) const { return desc.plane(p).extent.h; }
+    uint32_t         depth (const PlaneCoord & p = {}) const { return desc.plane(p).extent.d; }
+    uint32_t         step  (const PlaneCoord & p = {}) const { return desc.plane(p).step; }
+    uint32_t         pitch (const PlaneCoord & p = {}) const { return desc.plane(p).pitch; }
+    uint32_t         slice (const PlaneCoord & p = {}) const { return desc.plane(p).slice; }
     // clang-format on
     //@}
 
-    /// return pointer to particular pixel
-    const uint8_t * pixel(const PlaneCoord & c, size_t x = 0, size_t y = 0, size_t z = 0) const { return data + desc.pixel(c, x, y, z); }
+    /// return offset to particular pixel
+    size_t pixel(const PlaneCoord & p = {}, size_t x = 0, size_t y = 0, size_t z = 0) const { return desc.pixel(p, x, y, z); }
+
+    /// @brief Return pointer to particular pixel
+    const uint8_t * at(const PlaneCoord & p = {}, size_t x = 0, size_t y = 0, size_t z = 0) const { return data + desc.pixel(p, x, y, z); }
 
     /// return pointer to particular pixel
-    uint8_t * pixel(const PlaneCoord & c, size_t x = 0, size_t y = 0, size_t z = 0) { return data + desc.pixel(c, x, y, z); }
+    uint8_t * at(const PlaneCoord & p = {}, size_t x = 0, size_t y = 0, size_t z = 0) { return data + desc.pixel(p, x, y, z); }
 
     /// Save image to output stream
     void save(const ImageDesc::SaveToStreamParameters & params, std::ostream & stream) const { return desc.save(params, stream, data); }
@@ -1654,7 +1657,7 @@ public:
     const ImageDesc & desc() const { return _proxy.desc; }
 
     /// return descriptor of a image plane
-    const PlaneDesc & plane(const PlaneCoord & c = {}) const { return _proxy.desc.plane(c); }
+    const PlaneDesc & plane(const PlaneCoord & p = {}) const { return _proxy.desc.plane(p); }
 
     /// return pointer to pixel buffer.
     const uint8_t * data() const { return _proxy.data; }
@@ -1668,19 +1671,28 @@ public:
     /// check if the image is empty or not.
     bool empty() const { return _proxy.desc.empty(); }
 
+    /// return offset to particular pixel
+    size_t pixel(const PlaneCoord & p = {}, size_t x = 0, size_t y = 0, size_t z = 0) const { return _proxy.desc.pixel(p, x, y, z); }
+
+    /// @brief Return pointer to particular pixel
+    const uint8_t * at(const PlaneCoord & p = {}, size_t x = 0, size_t y = 0, size_t z = 0) const { return _proxy.at(p, x, y, z); }
+
+    /// return pointer to particular pixel
+    uint8_t * at(const PlaneCoord & p = {}, size_t x = 0, size_t y = 0, size_t z = 0) { return _proxy.at(p, x, y, z); }
+
     //@}
 
     /// \name query properties of the specific plane.
     //@{
     // clang-format off
-    PixelFormat      format(const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).format; }
-    const Extent3D & extent(const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).extent; }
-    uint32_t         width (const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).extent.w; }
-    uint32_t         height(const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).extent.h; }
-    uint32_t         depth (const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).extent.d; }
-    uint32_t         step  (const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).step; }
-    uint32_t         pitch (const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).pitch; }
-    uint32_t         slice (const PlaneCoord & c = {}) const { return _proxy.desc.plane(c).slice; }
+    PixelFormat      format(const PlaneCoord & p = {}) const { return _proxy.desc.plane(p).format; }
+    const Extent3D & extent(const PlaneCoord & p = {}) const { return _proxy.desc.plane(p).extent; }
+    uint32_t         width (const PlaneCoord & p = {}) const { return _proxy.desc.plane(p).extent.w; }
+    uint32_t         height(const PlaneCoord & p = {}) const { return _proxy.desc.plane(p).extent.h; }
+    uint32_t         depth (const PlaneCoord & p = {}) const { return _proxy.desc.plane(p).extent.d; }
+    uint32_t         step  (const PlaneCoord & p = {}) const { return _proxy.desc.plane(p).step; }
+    uint32_t         pitch (const PlaneCoord & p = {}) const { return _proxy.desc.plane(p).pitch; }
+    uint32_t         slice (const PlaneCoord & p = {}) const { return _proxy.desc.plane(p).slice; }
     // clang-format on
     //@}
 
