@@ -481,74 +481,33 @@ RII_API std::string PixelFormat::toString() const {
     struct Local {
         static inline const char * layout2str(size_t layout) {
             static const char * LAYOUT_STRING[] = {
-                "LAYOUT_UNKNOWN",
-                "LAYOUT_1",
-                "LAYOUT_2_2_2_2",
-                "LAYOUT_3_3_2",
-                "LAYOUT_4_4",
-                "LAYOUT_4_4_4_4",
-                "LAYOUT_5_5_5_1",
-                "LAYOUT_5_6_5",
-                "LAYOUT_8",
-                "LAYOUT_8_8",
-                "LAYOUT_8_8_8",
-                "LAYOUT_8_8_8_8",
-                "LAYOUT_10_11_11",
-                "LAYOUT_11_11_10",
-                "LAYOUT_10_10_10_2",
-                "LAYOUT_16",
-                "LAYOUT_16_16",
-                "LAYOUT_16_16_16",
-                "LAYOUT_16_16_16_16",
-                "LAYOUT_32",
-                "LAYOUT_32_32",
-                "LAYOUT_32_32_32",
-                "LAYOUT_32_32_32_32",
-                "LAYOUT_24",
-                "LAYOUT_8_24",
-                "LAYOUT_24_8",
-                "LAYOUT_4_4_24",
-                "LAYOUT_32_8_24",
-                "LAYOUT_DXT1",
-                "LAYOUT_DXT2",
-                "LAYOUT_DXT3",
-                "LAYOUT_DXT3A",
-                "LAYOUT_DXT4",
-                "LAYOUT_DXT5",
-                "LAYOUT_DXT5A",
-                "LAYOUT_DXN",
-                "LAYOUT_CTX1",
-                "LAYOUT_DXT3A_AS_1_1_1_1",
-                "LAYOUT_GRGB",
-                "LAYOUT_RGBG",
-                "LAYOUT_ASTC_4x4",
-                "LAYOUT_ASTC_5x4",
-                "LAYOUT_ASTC_5x5",
-                "LAYOUT_ASTC_6x5",
-                "LAYOUT_ASTC_6x6",
-                "LAYOUT_ASTC_8x5",
-                "LAYOUT_ASTC_8x6",
-                "LAYOUT_ASTC_8x8",
-                "LAYOUT_ASTC_10x5",
-                "LAYOUT_ASTC_10x6",
-                "LAYOUT_ASTC_10x8",
-                "LAYOUT_ASTC_10x10",
-                "LAYOUT_ASTC_12x10",
-                "LAYOUT_ASTC_12x12",
-                "LAYOUT_ASTC_4x4_SFLOAT",
-                "LAYOUT_ASTC_5x4_SFLOAT",
-                "LAYOUT_ASTC_5x5_SFLOAT",
-                "LAYOUT_ASTC_6x5_SFLOAT",
-                "LAYOUT_ASTC_6x6_SFLOAT",
-                "LAYOUT_ASTC_8x5_SFLOAT",
-                "LAYOUT_ASTC_8x6_SFLOAT",
-                "LAYOUT_ASTC_8x8_SFLOAT",
-                "LAYOUT_ASTC_10x5_SFLOAT",
-                "LAYOUT_ASTC_10x6_SFLOAT",
-                "LAYOUT_ASTC_10x8_SFLOAT",
-                "LAYOUT_ASTC_10x10_SFLOAT",
-                "LAYOUT_ASTC_12x10_SFLOAT",
-                "LAYOUT_ASTC_12x12_SFLOAT",
+                "LAYOUT_UNKNOWN",     "LAYOUT_1",
+                "LAYOUT_2_2_2_2",     "LAYOUT_3_3_2",
+                "LAYOUT_4_4",         "LAYOUT_4_4_4_4",
+                "LAYOUT_5_5_5_1",     "LAYOUT_5_6_5",
+                "LAYOUT_8",           "LAYOUT_8_8",
+                "LAYOUT_8_8_8",       "LAYOUT_8_8_8_8",
+                "LAYOUT_10_11_11",    "LAYOUT_11_11_10",
+                "LAYOUT_10_10_10_2",  "LAYOUT_16",
+                "LAYOUT_16_16",       "LAYOUT_16_16_16",
+                "LAYOUT_16_16_16_16", "LAYOUT_32",
+                "LAYOUT_32_32",       "LAYOUT_32_32_32",
+                "LAYOUT_32_32_32_32", "LAYOUT_24",
+                "LAYOUT_8_24",        "LAYOUT_24_8",
+                "LAYOUT_4_4_24",      "LAYOUT_32_8_24",
+                "LAYOUT_DXT1",        "LAYOUT_DXT2",
+                "LAYOUT_DXT3",        "LAYOUT_DXT3A",
+                "LAYOUT_DXT4",        "LAYOUT_DXT5",
+                "LAYOUT_DXT5A",       "LAYOUT_DXN",
+                "LAYOUT_CTX1",        "LAYOUT_DXT3A_AS_1_1_1_1",
+                "LAYOUT_GRGB",        "LAYOUT_RGBG",
+                "LAYOUT_ASTC_4x4",    "LAYOUT_ASTC_5x4",
+                "LAYOUT_ASTC_5x5",    "LAYOUT_ASTC_6x5",
+                "LAYOUT_ASTC_6x6",    "LAYOUT_ASTC_8x5",
+                "LAYOUT_ASTC_8x6",    "LAYOUT_ASTC_8x8",
+                "LAYOUT_ASTC_10x5",   "LAYOUT_ASTC_10x6",
+                "LAYOUT_ASTC_10x8",   "LAYOUT_ASTC_10x10",
+                "LAYOUT_ASTC_12x10",  "LAYOUT_ASTC_12x12",
             };
             static_assert(std::size(LAYOUT_STRING) == NUM_COLOR_LAYOUTS);
             return (layout < std::size(LAYOUT_STRING)) ? LAYOUT_STRING[layout] : "INVALID_LAYOUT";
@@ -1853,21 +1812,26 @@ void ImageDesc::save(const SaveToStreamParameters & params, std::ostream & strea
     case JPG:
     case BMP: {
         if (arrayLength > 1 || faces > 1 || levels > 1) { RII_THROW("Can't save images with multiple layers and/or mipmaps to PNG/JPG/BMP format."); }
+        const auto & fd = format().layoutDesc();
+        if (fd.blockWidth > 1 || fd.blockHeight > 1) { RII_THROW("Can't save block compressed images to PNG/JPG/BMP format."); }
 #ifdef INCLUDE_STB_IMAGE_WRITE_H
         stbi_write_func * write = [](void * context, void * data, int size_) {
             auto fp = (std::ofstream *) context;
             fp->write((const char *) data, size_);
         };
         if (PNG == params.format) {
-            if (!stbi_write_png_to_func(write, &stream, (int) width(), (int) height(), 4, pixels, 0)) {
+            if (fd.channels[0].bits != 8 || fd.channels[0].bits != 16) { RII_THROW("Can only save images with 8 or 16 bits channels to PNG format."); }
+            if (!stbi_write_png_to_func(write, &stream, (int) width(), (int) height(), fd.numChannels, pixels, 0)) {
                 RII_THROW("failed to save image to stream: stbi_write_png_to_func failed.");
             }
         } else if (JPG == params.format) {
-            if (!stbi_write_jpg_to_func(write, &stream, (int) width(), (int) height(), 4, pixels, 0)) {
+            if (fd.channels[0].bits != 8) { RII_THROW("Can only save images with 8 bits channels to JPG format."); }
+            if (!stbi_write_jpg_to_func(write, &stream, (int) width(), (int) height(), fd.numChannels, pixels, 0)) {
                 RII_THROW("failed to save image to stream: stbi_write_jpg_to_func failed.");
             }
         } else {
-            if (!stbi_write_bmp_to_func(write, &stream, (int) width(), (int) height(), 4, pixels)) {
+            if (fd.channels[0].bits != 8) { RII_THROW("Can only save images with 8 bits channels to JPG format."); }
+            if (!stbi_write_bmp_to_func(write, &stream, (int) width(), (int) height(), fd.numChannels, pixels)) {
                 RII_THROW("failed to save image to stream: stbi_write_bmp_to_func failed.");
             }
         }

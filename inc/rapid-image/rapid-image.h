@@ -42,7 +42,7 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 7
+#define RAPID_IMAGE_HEADER_REVISION 8
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
@@ -505,23 +505,7 @@ union RII_API PixelFormat {
         LAYOUT_ASTC_10x10,
         LAYOUT_ASTC_12x10,
         LAYOUT_ASTC_12x12,
-
-        FIRST_ASTC_SFLOAT_LAYOUT,
-        LAYOUT_ASTC_4x4_SFLOAT = FIRST_ASTC_SFLOAT_LAYOUT,
-        LAYOUT_ASTC_5x4_SFLOAT,
-        LAYOUT_ASTC_5x5_SFLOAT,
-        LAYOUT_ASTC_6x5_SFLOAT,
-        LAYOUT_ASTC_6x6_SFLOAT,
-        LAYOUT_ASTC_8x5_SFLOAT,
-        LAYOUT_ASTC_8x6_SFLOAT,
-        LAYOUT_ASTC_8x8_SFLOAT,
-        LAYOUT_ASTC_10x5_SFLOAT,
-        LAYOUT_ASTC_10x6_SFLOAT,
-        LAYOUT_ASTC_10x8_SFLOAT,
-        LAYOUT_ASTC_10x10_SFLOAT,
-        LAYOUT_ASTC_12x10_SFLOAT,
-        LAYOUT_ASTC_12x12_SFLOAT,
-        LAST_ASTC_LAYOUT = LAYOUT_ASTC_12x12_SFLOAT,
+        LAST_ASTC_LAYOUT = LAYOUT_ASTC_12x12,
 
         NUM_COLOR_LAYOUTS,
     };
@@ -602,20 +586,6 @@ union RII_API PixelFormat {
         { 10, 10, 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_10x10,
         { 12, 10, 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_12x10,
         { 12, 12, 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_12x12,
-        { 4 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_4x4_SFLOAT,
-        { 5 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_5x4_SFLOAT,
-        { 5 , 5 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_5x5_SFLOAT,
-        { 6 , 5 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_6x5_SFLOAT,
-        { 6 , 6 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_6x6_SFLOAT,
-        { 8 , 5 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_8x5_SFLOAT,
-        { 8 , 6 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_8x6_SFLOAT,
-        { 8 , 8 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_8x8_SFLOAT,
-        { 10, 5 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_10x5_SFLOAT,
-        { 10, 6 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_10x6_SFLOAT,
-        { 10, 8 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_10x8_SFLOAT,
-        { 10, 10, 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_10x10_SFLOAT,
-        { 12, 10, 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_12x10_SFLOAT,
-        { 12, 12, 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_12x12_SFLOAT,
         // clang-format on
     };
     static_assert(std::size(LAYOUTS) == NUM_COLOR_LAYOUTS, "LAYOUTs array size is wrong.");
@@ -990,48 +960,48 @@ union RII_API PixelFormat {
     static constexpr PixelFormat DXN_UNORM()                   { return make(LAYOUT_DXN, SIGN_UNORM, SWIZZLE_XYZW); }
     static constexpr PixelFormat DXN_SNORM()                   { return make(LAYOUT_DXN, SIGN_SNORM, SWIZZLE_XYZW); }
 
-    static constexpr PixelFormat ASTC_4x4_UNORM()              { return make(LAYOUT_ASTC_4x4, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_4x4_SRGB()               { return make(LAYOUT_ASTC_4x4, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_5x4_UNORM()              { return make(LAYOUT_ASTC_5x4, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_5x4_SRGB()               { return make(LAYOUT_ASTC_5x4, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_5x5_UNORM()              { return make(LAYOUT_ASTC_5x5, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_5x5_SRGB()               { return make(LAYOUT_ASTC_5x5, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_6x5_UNORM()              { return make(LAYOUT_ASTC_6x5, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_6x5_SRGB()               { return make(LAYOUT_ASTC_6x5, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_6x6_UNORM()              { return make(LAYOUT_ASTC_6x6, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_6x6_SRGB()               { return make(LAYOUT_ASTC_6x6, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_8x5_UNORM()              { return make(LAYOUT_ASTC_8x5, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_8x5_SRGB()               { return make(LAYOUT_ASTC_8x5, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_8x6_UNORM()              { return make(LAYOUT_ASTC_8x6, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_8x6_SRGB()               { return make(LAYOUT_ASTC_8x6, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_8x8_UNORM()              { return make(LAYOUT_ASTC_8x8, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_8x8_SRGB()               { return make(LAYOUT_ASTC_8x8, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_10x5_UNORM()             { return make(LAYOUT_ASTC_10x5, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_10x5_SRGB()              { return make(LAYOUT_ASTC_10x5, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_10x6_UNORM()             { return make(LAYOUT_ASTC_10x6, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_10x6_SRGB()              { return make(LAYOUT_ASTC_10x6, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_10x8_UNORM()             { return make(LAYOUT_ASTC_10x8, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_10x8_SRGB()              { return make(LAYOUT_ASTC_10x8, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_4x4_UNORM()              { return make(LAYOUT_ASTC_4x4,   SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_5x4_UNORM()              { return make(LAYOUT_ASTC_5x4,   SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_5x5_UNORM()              { return make(LAYOUT_ASTC_5x5,   SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_6x5_UNORM()              { return make(LAYOUT_ASTC_6x5,   SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_6x6_UNORM()              { return make(LAYOUT_ASTC_6x6,   SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_8x5_UNORM()              { return make(LAYOUT_ASTC_8x5,   SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_8x6_UNORM()              { return make(LAYOUT_ASTC_8x6,   SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_8x8_UNORM()              { return make(LAYOUT_ASTC_8x8,   SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_10x5_UNORM()             { return make(LAYOUT_ASTC_10x5,  SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_10x6_UNORM()             { return make(LAYOUT_ASTC_10x6,  SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_10x8_UNORM()             { return make(LAYOUT_ASTC_10x8,  SIGN_UNORM, SWIZZLE_XYZW); }
     static constexpr PixelFormat ASTC_10x10_UNORM()            { return make(LAYOUT_ASTC_10x10, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_10x10_SRGB()             { return make(LAYOUT_ASTC_10x10, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
     static constexpr PixelFormat ASTC_12x10_UNORM()            { return make(LAYOUT_ASTC_12x10, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_12x10_SRGB()             { return make(LAYOUT_ASTC_12x10, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
     static constexpr PixelFormat ASTC_12x12_UNORM()            { return make(LAYOUT_ASTC_12x12, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_4x4_SRGB()               { return make(LAYOUT_ASTC_4x4,   SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_5x4_SRGB()               { return make(LAYOUT_ASTC_5x4,   SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_5x5_SRGB()               { return make(LAYOUT_ASTC_5x5,   SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_6x5_SRGB()               { return make(LAYOUT_ASTC_6x5,   SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_6x6_SRGB()               { return make(LAYOUT_ASTC_6x6,   SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_8x5_SRGB()               { return make(LAYOUT_ASTC_8x5,   SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_8x6_SRGB()               { return make(LAYOUT_ASTC_8x6,   SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_8x8_SRGB()               { return make(LAYOUT_ASTC_8x8,   SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_10x5_SRGB()              { return make(LAYOUT_ASTC_10x5,  SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_10x6_SRGB()              { return make(LAYOUT_ASTC_10x6,  SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_10x8_SRGB()              { return make(LAYOUT_ASTC_10x8,  SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_10x10_SRGB()             { return make(LAYOUT_ASTC_10x10, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_12x10_SRGB()             { return make(LAYOUT_ASTC_12x10, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
     static constexpr PixelFormat ASTC_12x12_SRGB()             { return make(LAYOUT_ASTC_12x12, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_4x4_SFLOAT()             { return make(LAYOUT_ASTC_4x4_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_5x4_SFLOAT()             { return make(LAYOUT_ASTC_5x4_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_5x5_SFLOAT()             { return make(LAYOUT_ASTC_5x5_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_6x5_SFLOAT()             { return make(LAYOUT_ASTC_6x5_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_6x6_SFLOAT()             { return make(LAYOUT_ASTC_6x6_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_8x5_SFLOAT()             { return make(LAYOUT_ASTC_8x5_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_8x6_SFLOAT()             { return make(LAYOUT_ASTC_8x6_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_8x8_SFLOAT()             { return make(LAYOUT_ASTC_8x8_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_10x5_SFLOAT()            { return make(LAYOUT_ASTC_10x5_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_10x6_SFLOAT()            { return make(LAYOUT_ASTC_10x6_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_10x8_SFLOAT()            { return make(LAYOUT_ASTC_10x8_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_10x10_SFLOAT()           { return make(LAYOUT_ASTC_10x10_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_12x10_SFLOAT()           { return make(LAYOUT_ASTC_12x10_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ASTC_12x12_SFLOAT()           { return make(LAYOUT_ASTC_12x12_SFLOAT, SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_4x4_SFLOAT()             { return make(LAYOUT_ASTC_4x4,   SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_5x4_SFLOAT()             { return make(LAYOUT_ASTC_5x4,   SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_5x5_SFLOAT()             { return make(LAYOUT_ASTC_5x5,   SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_6x5_SFLOAT()             { return make(LAYOUT_ASTC_6x5,   SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_6x6_SFLOAT()             { return make(LAYOUT_ASTC_6x6,   SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_8x5_SFLOAT()             { return make(LAYOUT_ASTC_8x5,   SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_8x6_SFLOAT()             { return make(LAYOUT_ASTC_8x6,   SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_8x8_SFLOAT()             { return make(LAYOUT_ASTC_8x8,   SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_10x5_SFLOAT()            { return make(LAYOUT_ASTC_10x5,  SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_10x6_SFLOAT()            { return make(LAYOUT_ASTC_10x6,  SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_10x8_SFLOAT()            { return make(LAYOUT_ASTC_10x8,  SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_10x10_SFLOAT()           { return make(LAYOUT_ASTC_10x10, SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_12x10_SFLOAT()           { return make(LAYOUT_ASTC_12x10, SIGN_FLOAT, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ASTC_12x12_SFLOAT()           { return make(LAYOUT_ASTC_12x12, SIGN_FLOAT, SWIZZLE_XYZW); }
 
     //@}
 
