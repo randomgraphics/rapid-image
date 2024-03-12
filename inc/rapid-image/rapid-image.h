@@ -42,7 +42,7 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 9
+#define RAPID_IMAGE_HEADER_REVISION 10
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
@@ -476,6 +476,7 @@ union RII_API PixelFormat {
         LAYOUT_24_8,
         LAYOUT_4_4_24,
         LAYOUT_32_8_24,
+
         LAYOUT_DXT1,
         LAYOUT_DXT2,
         LAYOUT_DXT3,
@@ -488,6 +489,9 @@ union RII_API PixelFormat {
         LAYOUT_DXT3A_AS_1_1_1_1,
         LAYOUT_GRGB,
         LAYOUT_RGBG,
+
+        LAYOUT_ETC2,
+        LAYOUT_ETC2_EAC,
 
         // all ASTC layout are having 4 channels: RGB + A
         FIRST_ASTC_LAYOUT,
@@ -559,7 +563,8 @@ union RII_API PixelFormat {
         { 1 , 1 , 4  , 2 , { { 0 , 24 }, { 24 , 8  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_24_8,
         { 1 , 1 , 4  , 4 , { { 0 , 4  }, { 4  , 4  }, { 8  , 24 }, { 0  , 0  } } }, //LAYOUT_4_4_24,
         { 1 , 1 , 8  , 3 , { { 0 , 32 }, { 32 , 8  }, { 40 , 24 }, { 0  , 0  } } }, //LAYOUT_32_8_24,
-        { 4 , 4 , 8  , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXT1,
+
+        { 4 , 4 , 8  , 3 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXT1,
         { 4 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXT2,
         { 4 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXT3,
         { 4 , 4 , 8  , 1 , { { 0 , 4  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXT3A,
@@ -571,6 +576,9 @@ union RII_API PixelFormat {
         { 4 , 4 , 8  , 4 , { { 0 , 1  }, { 1  , 1  }, { 2  , 1  }, { 3  , 1  } } }, //LAYOUT_DXT3A_AS_1_1_1_1,
         { 2 , 1 , 4  , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_GRGB,
         { 2 , 1 , 4  , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_RGBG,
+
+        { 4 , 4 , 8  , 3 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_EC2,
+        { 4 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_EC2_EAC,
 
         { 4 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_4x4,
         { 5 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_ASTC_5x4,
@@ -959,6 +967,12 @@ union RII_API PixelFormat {
 
     static constexpr PixelFormat DXN_UNORM()                   { return make(LAYOUT_DXN, SIGN_UNORM, SWIZZLE_XYZW); }
     static constexpr PixelFormat DXN_SNORM()                   { return make(LAYOUT_DXN, SIGN_SNORM, SWIZZLE_XYZW); }
+
+    static constexpr PixelFormat ETC2_UNORM()                  { return make(LAYOUT_ETC2, SIGN_UNORM, SWIZZLE_XYZ1); }
+    static constexpr PixelFormat ECT2_SGRB()                   { return make(LAYOUT_ETC2, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZ1); }
+
+    static constexpr PixelFormat ETC2_EAC_UNORM()              { return make(LAYOUT_ETC2_EAC, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ECT2_EAC_SGRB()               { return make(LAYOUT_ETC2_EAC, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
 
     static constexpr PixelFormat ASTC_4x4_UNORM()              { return make(LAYOUT_ASTC_4x4,   SIGN_UNORM, SWIZZLE_XYZW); }
     static constexpr PixelFormat ASTC_5x4_UNORM()              { return make(LAYOUT_ASTC_5x4,   SIGN_UNORM, SWIZZLE_XYZW); }
