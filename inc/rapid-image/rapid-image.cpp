@@ -1820,7 +1820,7 @@ void ImageDesc::save(const SaveToStreamParameters & params, std::ostream & strea
             fp->write((const char *) data, size_);
         };
         if (PNG == params.format) {
-            if (fd.channels[0].bits != 8 || fd.channels[0].bits != 16) { RII_THROW("Can only save images with 8 or 16 bits channels to PNG format."); }
+            if (fd.channels[0].bits != 8 && fd.channels[0].bits != 16) { RII_THROW("Can only save images with 8 or 16 bits channels to PNG format."); }
             if (!stbi_write_png_to_func(write, &stream, (int) width(), (int) height(), fd.numChannels, pixels, 0)) {
                 RII_THROW("failed to save image to stream: stbi_write_png_to_func failed.");
             }
