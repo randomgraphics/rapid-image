@@ -1683,7 +1683,10 @@ public:
     uint64_t size() const { return _proxy.desc.size; }
 
     /// check if the image is empty or not.
-    bool empty() const { return _proxy.desc.empty(); }
+    bool empty() const {
+        RII_ASSERT(_proxy.desc.empty() == (_proxy.data == nullptr)); // empty image should have no data. non-empty image should have data.
+        return _proxy.desc.empty();
+    }
 
     /// return offset to particular pixel
     size_t pixel(const PlaneCoord & p = {}, size_t x = 0, size_t y = 0, size_t z = 0) const { return _proxy.desc.pixel(p, x, y, z); }
@@ -1741,7 +1744,7 @@ private:
     ImageProxy _proxy;
 
 private:
-    void construct(const void * initialContent, size_t initialContentSizeInbytes);
+    bool construct(const void * initialContent, size_t initialContentSizeInbytes);
 };
 
 } // namespace RAPID_IMAGE_NAMESPACE

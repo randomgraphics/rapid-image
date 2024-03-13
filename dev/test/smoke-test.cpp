@@ -217,6 +217,17 @@ TEST_CASE("astc-smoke", "[astc]") {
     CHECK(compressedSize == plane.size);
 }
 
+TEST_CASE("aalloc") {
+    for (size_t i = 0; i < 10; ++i) {
+        size_t alignment = 1 << i;
+        size_t size      = 0; // intentionally set to 0 to test the behavior of aalloc.
+        auto   ptr       = rii_details::aalloc(alignment, size);
+        REQUIRE(ptr);
+        REQUIRE(0 == ((size_t) ptr % alignment));
+        rii_details::afree(ptr);
+    }
+}
+
 // TEST_CASE("save-to-png") {
 //     auto path1 = (std::filesystem::path(TEST_FOLDER) / "alien-planet.jpg").string();
 //     PH_LOGI("load image from file: %s", path1.c_str());
