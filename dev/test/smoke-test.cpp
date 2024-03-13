@@ -18,12 +18,12 @@ TEST_CASE("pixel-size") {
     CHECK(8 == PixelFormat::A_8_UNORM().bitsPerPixel());
     CHECK(1 == PixelFormat::A_8_UNORM().bytesPerBlock());
 
-    CHECK(4 == PixelFormat::DXT1_UNORM().bitsPerPixel());  // 4 bits per pixel
-    CHECK(8 == PixelFormat::DXT1_UNORM().bytesPerBlock()); // 8 byte per block
+    CHECK(4 == PixelFormat::BC1_UNORM().bitsPerPixel());  // 4 bits per pixel
+    CHECK(8 == PixelFormat::BC1_UNORM().bytesPerBlock()); // 8 byte per block
 }
 
 TEST_CASE("dxt1-face-major") {
-    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 1, 0, ImageDesc::FACE_MAJOR, 4); // set alignment to 4.
+    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::BC1_UNORM(), {256, 256, 1}), 6, 1, 0, ImageDesc::FACE_MAJOR, 4); // set alignment to 4.
     REQUIRE(desc.slice({0, 0, 0}) == 32768);
     REQUIRE(desc.slice({0, 0, 1}) == 8192);
     REQUIRE(desc.slice({0, 0, 2}) == 2048);
@@ -48,7 +48,7 @@ TEST_CASE("dxt1-face-major") {
 }
 
 TEST_CASE("dxt1-mip-major") {
-    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {256, 256, 1}), 6, 1, 0, ImageDesc::MIP_MAJOR, 4); // set alignment to 4.
+    auto desc = ImageDesc {}.reset(PlaneDesc::make(PixelFormat::BC1_UNORM(), {256, 256, 1}), 6, 1, 0, ImageDesc::MIP_MAJOR, 4); // set alignment to 4.
     REQUIRE(desc.slice({0, 0, 0}) == 32768);
     REQUIRE(desc.slice({0, 0, 1}) == 8192);
     REQUIRE(desc.slice({0, 0, 2}) == 2048);
@@ -187,13 +187,13 @@ TEST_CASE("copy-compressed") {
     uint32_t b = 8; // bytes per pixel block
 
     // Create a source 8x8 compressed image
-    auto srcImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {w, h, 1})));
+    auto srcImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::BC1_UNORM(), {w, h, 1})));
     auto src      = srcImage.plane();
     auto srcData  = (uint32_t *) srcImage.data();
     for (uint32_t i = 0; i < srcImage.size() / 4; i++) { srcData[i] = i; }
 
     // Create a blank 8x8 image as destination.
-    auto dstImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {w, h, 1})));
+    auto dstImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::BC1_UNORM(), {w, h, 1})));
     auto dst      = dstImage.plane();
     auto dstData  = (uint32_t *) dstImage.data();
     for (uint32_t i = 0; i < dstImage.size() / 4; i++) { dstData[i] = 0; }

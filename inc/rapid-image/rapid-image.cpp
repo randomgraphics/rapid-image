@@ -510,21 +510,21 @@ inline static constexpr PixelFormat DXGI_FORMATS[] = {
     PixelFormat::UNKNOWN(),                // DXGI_FORMAT_RGB_9_9_9E5_SHAREDEXP   = 67,
     PixelFormat::UNKNOWN(),                // DXGI_FORMAT_RG_8_8_BG_8_8_UNORM     = 68,
     PixelFormat::UNKNOWN(),                // DXGI_FORMAT_GR_8_8_GB_8_8_UNORM     = 69,
-    PixelFormat::DXT1_UINT(),              // DXGI_FORMAT_BC1_UINT                = 70,
-    PixelFormat::DXT1_UNORM(),             // DXGI_FORMAT_BC1_UNORM               = 71,
-    PixelFormat::DXT1_SRGB(),              // DXGI_FORMAT_BC1_UNORM_SRGB          = 72,
-    PixelFormat::DXT2_UINT(),              // DXGI_FORMAT_BC2_UINT                = 73,
-    PixelFormat::DXT2_UNORM(),             // DXGI_FORMAT_BC2_UNORM               = 74,
-    PixelFormat::DXT2_SRGB(),              // DXGI_FORMAT_BC2_UNORM_SRGB          = 75,
-    PixelFormat::DXT3_UINT(),              // DXGI_FORMAT_BC3_UINT                = 76,
-    PixelFormat::DXT3_UNORM(),             // DXGI_FORMAT_BC3_UNORM               = 77,
-    PixelFormat::DXT3_SRGB(),              // DXGI_FORMAT_BC3_UNORM_SRGB          = 78,
-    PixelFormat::DXT4_UINT(),              // DXGI_FORMAT_BC4_UINT                = 79,
-    PixelFormat::DXT4_UNORM(),             // DXGI_FORMAT_BC4_UNORM               = 80,
-    PixelFormat::DXT4_SNORM(),             // DXGI_FORMAT_BC4_SNORM               = 81,
-    PixelFormat::DXT5_UINT(),              // DXGI_FORMAT_BC5_UINT                = 82,
-    PixelFormat::DXT5_UNORM(),             // DXGI_FORMAT_BC5_UNORM               = 83,
-    PixelFormat::DXT5_SNORM(),             // DXGI_FORMAT_BC5_SNORM               = 84,
+    PixelFormat::BC1_UINT(),               // DXGI_FORMAT_BC1_UINT                = 70,
+    PixelFormat::BC1_UNORM(),              // DXGI_FORMAT_BC1_UNORM               = 71,
+    PixelFormat::BC1_SRGB(),               // DXGI_FORMAT_BC1_UNORM_SRGB          = 72,
+    PixelFormat::BC2_UINT(),               // DXGI_FORMAT_BC2_UINT                = 73,
+    PixelFormat::BC2_UNORM(),              // DXGI_FORMAT_BC2_UNORM               = 74,
+    PixelFormat::BC2_SRGB(),               // DXGI_FORMAT_BC2_UNORM_SRGB          = 75,
+    PixelFormat::BC3_UINT(),               // DXGI_FORMAT_BC3_UINT                = 76,
+    PixelFormat::BC3_UNORM(),              // DXGI_FORMAT_BC3_UNORM               = 77,
+    PixelFormat::BC3_SRGB(),               // DXGI_FORMAT_BC3_UNORM_SRGB          = 78,
+    PixelFormat::BC4_UINT(),               // DXGI_FORMAT_BC4_UINT                = 79,
+    PixelFormat::BC4_UNORM(),              // DXGI_FORMAT_BC4_UNORM               = 80,
+    PixelFormat::BC4_SNORM(),              // DXGI_FORMAT_BC4_SNORM               = 81,
+    PixelFormat::BC5_UINT(),               // DXGI_FORMAT_BC5_UINT                = 82,
+    PixelFormat::BC5_UNORM(),              // DXGI_FORMAT_BC5_UNORM               = 83,
+    PixelFormat::BC5_SNORM(),              // DXGI_FORMAT_BC5_SNORM               = 84,
     PixelFormat::BGR_5_6_5_UNORM(),        // DXGI_FORMAT_BGR_5_6_5_UNORM         = 85,
     PixelFormat::BGRA_5_5_5_1_UNORM(),     // DXGI_FORMAT_BGRA_5_5_5_1_UNORM      = 86,
     PixelFormat::BGRA_8_8_8_8_UNORM(),     // DXGI_FORMAT_BGRA_8_8_8_8_UNORM      = 87,
@@ -549,34 +549,15 @@ RII_API std::string PixelFormat::toString() const {
     struct Local {
         static inline const char * layout2str(size_t layout) {
             static const char * LAYOUT_STRING[] = {
-                "LAYOUT_UNKNOWN",     "LAYOUT_1",
-                "LAYOUT_2_2_2_2",     "LAYOUT_3_3_2",
-                "LAYOUT_4_4",         "LAYOUT_4_4_4_4",
-                "LAYOUT_5_5_5_1",     "LAYOUT_5_6_5",
-                "LAYOUT_8",           "LAYOUT_8_8",
-                "LAYOUT_8_8_8",       "LAYOUT_8_8_8_8",
-                "LAYOUT_10_11_11",    "LAYOUT_11_11_10",
-                "LAYOUT_10_10_10_2",  "LAYOUT_16",
-                "LAYOUT_16_16",       "LAYOUT_16_16_16",
-                "LAYOUT_16_16_16_16", "LAYOUT_32",
-                "LAYOUT_32_32",       "LAYOUT_32_32_32",
-                "LAYOUT_32_32_32_32", "LAYOUT_24",
-                "LAYOUT_8_24",        "LAYOUT_24_8",
-                "LAYOUT_4_4_24",      "LAYOUT_32_8_24",
-                "LAYOUT_DXT1",        "LAYOUT_DXT2",
-                "LAYOUT_DXT3",        "LAYOUT_DXT3A",
-                "LAYOUT_DXT4",        "LAYOUT_DXT5",
-                "LAYOUT_DXT5A",       "LAYOUT_DXN",
-                "LAYOUT_CTX1",        "LAYOUT_DXT3A_AS_1_1_1_1",
-                "LAYOUT_GRGB",        "LAYOUT_RGBG",
-                "LAYOUT_ETC2",        "LAYOUT_ETC2_EAC",
-                "LAYOUT_ASTC_4x4",    "LAYOUT_ASTC_5x4",
-                "LAYOUT_ASTC_5x5",    "LAYOUT_ASTC_6x5",
-                "LAYOUT_ASTC_6x6",    "LAYOUT_ASTC_8x5",
-                "LAYOUT_ASTC_8x6",    "LAYOUT_ASTC_8x8",
-                "LAYOUT_ASTC_10x5",   "LAYOUT_ASTC_10x6",
-                "LAYOUT_ASTC_10x8",   "LAYOUT_ASTC_10x10",
-                "LAYOUT_ASTC_12x10",  "LAYOUT_ASTC_12x12",
+                "LAYOUT_UNKNOWN",     "LAYOUT_1",         "LAYOUT_2_2_2_2",    "LAYOUT_3_3_2",      "LAYOUT_4_4",         "LAYOUT_4_4_4_4",
+                "LAYOUT_5_5_5_1",     "LAYOUT_5_6_5",     "LAYOUT_8",          "LAYOUT_8_8",        "LAYOUT_8_8_8",       "LAYOUT_8_8_8_8",
+                "LAYOUT_10_11_11",    "LAYOUT_11_11_10",  "LAYOUT_10_10_10_2", "LAYOUT_16",         "LAYOUT_16_16",       "LAYOUT_16_16_16",
+                "LAYOUT_16_16_16_16", "LAYOUT_32",        "LAYOUT_32_32",      "LAYOUT_32_32_32",   "LAYOUT_32_32_32_32", "LAYOUT_24",
+                "LAYOUT_8_24",        "LAYOUT_24_8",      "LAYOUT_4_4_24",     "LAYOUT_32_8_24",    "LAYOUT_GRGB",        "LAYOUT_RGBG",
+                "LAYOUT_BC1",         "LAYOUT_BC2",       "LAYOUT_BC3",        "LAYOUT_BC4",        "LAYOUT_BC5",         "LAYOUT_BC6H",
+                "LAYOUT_BC7",         "LAYOUT_ETC2",      "LAYOUT_ETC2_EAC",   "LAYOUT_ASTC_4x4",   "LAYOUT_ASTC_5x4",    "LAYOUT_ASTC_5x5",
+                "LAYOUT_ASTC_6x5",    "LAYOUT_ASTC_6x6",  "LAYOUT_ASTC_8x5",   "LAYOUT_ASTC_8x6",   "LAYOUT_ASTC_8x8",    "LAYOUT_ASTC_10x5",
+                "LAYOUT_ASTC_10x6",   "LAYOUT_ASTC_10x8", "LAYOUT_ASTC_10x10", "LAYOUT_ASTC_12x10", "LAYOUT_ASTC_12x12",
             };
             static_assert(std::size(LAYOUT_STRING) == NUM_COLOR_LAYOUTS);
             return (layout < std::size(LAYOUT_STRING)) ? LAYOUT_STRING[layout] : "INVALID_LAYOUT";
@@ -758,15 +739,15 @@ RII_API auto PixelFormat::toOpenGL() const -> OpenGLFormat {
         //         result.format   = FORMAT_DEPTH_COMPONENT;
         //         result.type     = TYPE_UNSIGNED_INT;
         //     }
-    } else if (PixelFormat::DXT1_UNORM() == *this) {
+    } else if (PixelFormat::BC1_UNORM() == *this) {
         result.internal = INTERNAL_DXT1;
         result.format   = FORMAT_RGBA;
         result.type     = TYPE_UNSIGNED_BYTE;
-    } else if (PixelFormat::DXT3_UNORM() == *this) {
+    } else if (PixelFormat::BC3_UNORM() == *this) {
         result.internal = INTERNAL_DXT3;
         result.format   = FORMAT_RGBA;
         result.type     = TYPE_UNSIGNED_BYTE;
-    } else if (PixelFormat::DXT5_UNORM() == *this) {
+    } else if (PixelFormat::BC5_UNORM() == *this) {
         result.internal = INTERNAL_DXT5;
         result.format   = FORMAT_RGBA;
         result.type     = TYPE_UNSIGNED_BYTE;
@@ -1438,11 +1419,11 @@ static struct DdpfDesc {
     // 0,          0 } }, { PixelFormat::RG_8_8_BG_8_8(),                     { DDS_DDPF_SIZE, DDS_DDPF_FOURCC,               DDS_FOURCC_RG_8_8_BG_8_8,  0, 0,
     // 0, 0,          0 } }, { PixelFormat::YUY2(),                          { DDS_DDPF_SIZE, DDS_DDPF_FOURCC,                    DDS_FOURCC_YUY2,  0, 0, 0, 0,
     // 0 } }, { PixelFormat::GR_8_8_GB_8_8(),                     { DDS_DDPF_SIZE, DDS_DDPF_FOURCC,               DDS_FOURCC_GR_8_8_GB_8_8,  0, 0, 0, 0, 0 } },
-    {PixelFormat::DXT1_UNORM(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, DDS_FOURCC_DXT1, 0, 0, 0, 0, 0}},
-    {PixelFormat::DXT3_UNORM(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, DDS_FOURCC_DXT2, 0, 0, 0, 0, 0}},
-    {PixelFormat::DXT3_UNORM(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, DDS_FOURCC_DXT3, 0, 0, 0, 0, 0}},
-    {PixelFormat::DXT5_UNORM(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, DDS_FOURCC_DXT4, 0, 0, 0, 0, 0}},
-    {PixelFormat::DXT5_UNORM(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, DDS_FOURCC_DXT5, 0, 0, 0, 0, 0}},
+    {PixelFormat::BC1_UNORM(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, DDS_FOURCC_DXT1, 0, 0, 0, 0, 0}},
+    {PixelFormat::BC3_UNORM(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, DDS_FOURCC_DXT2, 0, 0, 0, 0, 0}},
+    {PixelFormat::BC3_UNORM(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, DDS_FOURCC_DXT3, 0, 0, 0, 0, 0}},
+    {PixelFormat::BC5_UNORM(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, DDS_FOURCC_DXT4, 0, 0, 0, 0, 0}},
+    {PixelFormat::BC5_UNORM(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, DDS_FOURCC_DXT5, 0, 0, 0, 0, 0}},
     // {PixelFormat::R_32_FLOAT(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, D3DFMT_D32F_LOCKABLE, 0, 0, 0, 0, 0}},
     {PixelFormat::RGBA_16_16_16_16_UNORM(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, DDS_FOURCC_ABGR_16_16_16_16, 0, 0, 0, 0, 0}},
     {PixelFormat::RGBA_16_16_16_16_SNORM(), {DDS_DDPF_SIZE, DDS_DDPF_FOURCC, DDS_FOURCC_Q16W16V16U16, 0, 0, 0, 0, 0}},

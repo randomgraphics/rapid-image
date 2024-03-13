@@ -477,18 +477,16 @@ union RII_API PixelFormat {
         LAYOUT_4_4_24,
         LAYOUT_32_8_24,
 
-        LAYOUT_DXT1,
-        LAYOUT_DXT2,
-        LAYOUT_DXT3,
-        LAYOUT_DXT3A,
-        LAYOUT_DXT4,
-        LAYOUT_DXT5,
-        LAYOUT_DXT5A,
-        LAYOUT_DXN,
-        LAYOUT_CTX1,
-        LAYOUT_DXT3A_AS_1_1_1_1,
         LAYOUT_GRGB,
         LAYOUT_RGBG,
+
+        LAYOUT_BC1,
+        LAYOUT_BC2,
+        LAYOUT_BC3,
+        LAYOUT_BC4,
+        LAYOUT_BC5,
+        LAYOUT_BC6H,
+        LAYOUT_BC7,
 
         LAYOUT_ETC2,
         LAYOUT_ETC2_EAC,
@@ -564,18 +562,16 @@ union RII_API PixelFormat {
         { 1 , 1 , 4  , 4 , { { 0 , 4  }, { 4  , 4  }, { 8  , 24 }, { 0  , 0  } } }, //LAYOUT_4_4_24,
         { 1 , 1 , 8  , 3 , { { 0 , 32 }, { 32 , 8  }, { 40 , 24 }, { 0  , 0  } } }, //LAYOUT_32_8_24,
 
-        { 4 , 4 , 8  , 3 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXT1,
-        { 4 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXT2,
-        { 4 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXT3,
-        { 4 , 4 , 8  , 1 , { { 0 , 4  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXT3A,
-        { 4 , 4 , 8  , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXT4,
-        { 4 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXT5,
-        { 4 , 4 , 8  , 1 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXT5A,
-        { 4 , 4 , 16 , 2 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_DXN,
-        { 4 , 4 , 8  , 2 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_CTX1,
-        { 4 , 4 , 8  , 4 , { { 0 , 1  }, { 1  , 1  }, { 2  , 1  }, { 3  , 1  } } }, //LAYOUT_DXT3A_AS_1_1_1_1,
         { 2 , 1 , 4  , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_GRGB,
         { 2 , 1 , 4  , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_RGBG,
+
+        { 4 , 4 , 8  , 3 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_BC1,
+        { 4 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_BC2,
+        { 4 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_BC3,
+        { 4 , 4 , 8  , 1 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_BC4,
+        { 4 , 4 , 16 , 2 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_BC5,
+        { 4 , 4 , 16 , 3 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_BC6H,
+        { 4 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_BC7,
 
         { 4 , 4 , 8  , 3 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_EC2,
         { 4 , 4 , 16 , 4 , { { 0 , 0  }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_EC2_EAC,
@@ -941,38 +937,41 @@ union RII_API PixelFormat {
     static constexpr PixelFormat FLOAT4()                      { return RGBA_32_32_32_32_FLOAT(); }
 
     // compressed
-    static constexpr PixelFormat DXT1_UNORM()                  { return make(LAYOUT_DXT1, SIGN_UNORM, SWIZZLE_XYZ1); }
-    static constexpr PixelFormat DXT1_SRGB()                   { return make(LAYOUT_DXT1, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZ1); }
-    static constexpr PixelFormat DXT1_UINT()                   { return make(LAYOUT_DXT1, SIGN_UINT,  SWIZZLE_XYZ1); }
+    static constexpr PixelFormat BC1_UNORM()                   { return make(LAYOUT_BC1, SIGN_UNORM, SWIZZLE_XYZ1); }
+    static constexpr PixelFormat BC1_SRGB()                    { return make(LAYOUT_BC1, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZ1); }
+    static constexpr PixelFormat BC1_UINT()                    { return make(LAYOUT_BC1, SIGN_UINT,  SWIZZLE_XYZ1); }
 
-    static constexpr PixelFormat DXT2_UNORM()                  { return make(LAYOUT_DXT2, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat DXT2_SRGB()                   { return make(LAYOUT_DXT2, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat DXT2_UINT()                   { return make(LAYOUT_DXT2, SIGN_UINT,  SWIZZLE_XYZW); }
+    static constexpr PixelFormat BC2_UNORM()                   { return make(LAYOUT_BC2, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat BC2_SRGB()                    { return make(LAYOUT_BC2, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat BC2_UINT()                    { return make(LAYOUT_BC2, SIGN_UINT,  SWIZZLE_XYZW); }
 
-    static constexpr PixelFormat DXT3_UNORM()                  { return make(LAYOUT_DXT3, SIGN_UNORM, SWIZZLE_XYZ1); }
-    static constexpr PixelFormat DXT3_SRGB()                   { return make(LAYOUT_DXT3, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZ1); }
-    static constexpr PixelFormat DXT3_UINT()                   { return make(LAYOUT_DXT3, SIGN_UINT,  SWIZZLE_XYZ1); }
+    static constexpr PixelFormat BC3_UNORM()                   { return make(LAYOUT_BC3, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat BC3_SRGB()                    { return make(LAYOUT_BC3, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat BC3_UINT()                    { return make(LAYOUT_BC3, SIGN_UINT,  SWIZZLE_XYZW); }
 
-    static constexpr PixelFormat DXT4_UNORM()                  { return make(LAYOUT_DXT4, SIGN_UNORM, SWIZZLE_X001); }
-    static constexpr PixelFormat DXT4_SNORM()                  { return make(LAYOUT_DXT4, SIGN_SNORM, SWIZZLE_X001); }
-    static constexpr PixelFormat DXT4_UINT()                   { return make(LAYOUT_DXT4, SIGN_UINT,  SWIZZLE_X001); }
+    static constexpr PixelFormat BC4_UNORM()                   { return make(LAYOUT_BC4, SIGN_UNORM, SWIZZLE_X001); }
+    static constexpr PixelFormat BC4_SNORM()                   { return make(LAYOUT_BC4, SIGN_SNORM, SWIZZLE_X001); }
+    static constexpr PixelFormat BC4_UINT()                    { return make(LAYOUT_BC4, SIGN_UINT,  SWIZZLE_X001); }
 
-    static constexpr PixelFormat DXT5_UNORM()                  { return make(LAYOUT_DXT5, SIGN_UNORM, SWIZZLE_XY00); }
-    static constexpr PixelFormat DXT5_SNORM()                  { return make(LAYOUT_DXT5, SIGN_SNORM, SWIZZLE_XY00); }
-    static constexpr PixelFormat DXT5_UINT()                   { return make(LAYOUT_DXT5, SIGN_UINT,  SWIZZLE_XY00); }
-    static constexpr PixelFormat DXT5_SRGB()                   { return make(LAYOUT_DXT5, SIGN_SRGB,  SWIZZLE_XY00); }
+    static constexpr PixelFormat BC5_UNORM()                   { return make(LAYOUT_BC5, SIGN_UNORM, SWIZZLE_XY00); }
+    static constexpr PixelFormat BC5_SNORM()                   { return make(LAYOUT_BC5, SIGN_SNORM, SWIZZLE_XY00); }
+    static constexpr PixelFormat BC5_UINT()                    { return make(LAYOUT_BC5, SIGN_UINT,  SWIZZLE_XY00); }
 
-    static constexpr PixelFormat DXT5A_UNORM()                 { return make(LAYOUT_DXT5A, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat DXT5A_SNORM()                 { return make(LAYOUT_DXT5A, SIGN_SNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat BC6H_UNORM()                  { return make(LAYOUT_BC6H, SIGN_UNORM, SWIZZLE_XYZ1); }
+    static constexpr PixelFormat BC6H_SNORM()                  { return make(LAYOUT_BC6H, SIGN_SNORM, SWIZZLE_XYZ1); }
+    static constexpr PixelFormat BC6H_UINT()                   { return make(LAYOUT_BC6H, SIGN_UINT, SWIZZLE_XYZ1); }
 
-    static constexpr PixelFormat DXN_UNORM()                   { return make(LAYOUT_DXN, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat DXN_SNORM()                   { return make(LAYOUT_DXN, SIGN_SNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat BC7_UNORM()                   { return make(LAYOUT_BC7, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat BC7_SRGB()                    { return make(LAYOUT_BC7, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat BC7_UINT()                    { return make(LAYOUT_BC7, SIGN_UINT, SWIZZLE_XYZW); }
 
     static constexpr PixelFormat ETC2_UNORM()                  { return make(LAYOUT_ETC2, SIGN_UNORM, SWIZZLE_XYZ1); }
     static constexpr PixelFormat ETC2_SRGB()                   { return make(LAYOUT_ETC2, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZ1); }
+    static constexpr PixelFormat ETC2_UINT()                   { return make(LAYOUT_ETC2, SIGN_UINT, SWIZZLE_XYZ1); }
 
     static constexpr PixelFormat ETC2_EAC_UNORM()              { return make(LAYOUT_ETC2_EAC, SIGN_UNORM, SWIZZLE_XYZW); }
     static constexpr PixelFormat ETC2_EAC_SRGB()               { return make(LAYOUT_ETC2_EAC, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ETC2_EAC_UINT()               { return make(LAYOUT_ETC2_EAC, SIGN_UINT, SWIZZLE_XYZW); }
 
     static constexpr PixelFormat ASTC_4x4_UNORM()              { return make(LAYOUT_ASTC_4x4,   SIGN_UNORM, SWIZZLE_XYZW); }
     static constexpr PixelFormat ASTC_5x4_UNORM()              { return make(LAYOUT_ASTC_5x4,   SIGN_UNORM, SWIZZLE_XYZW); }
