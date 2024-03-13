@@ -157,26 +157,26 @@ TEST_CASE("copy-uncompressed") {
     uint32_t h = 2;
     uint32_t b = 4; // bytes per pixel block
 
-    // Create a source 8x8 image
+    // Create a source image
     auto srcImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA_8_8_8_8_UNORM(), {w, h, 1})));
     auto src      = srcImage.plane();
-    auto srcData  = (uint32_t *) srcImage.data();
-    for (uint32_t i = 0; i < srcImage.size() / 4; i++) { srcData[i] = i; }
+    auto srcData  = (uint8_t *) srcImage.data();
+    for (uint8_t i = 0; i < srcImage.size(); i++) { srcData[i] = i; }
 
-    // Create a blank 8x8 image as destination.
+    // Create a blank destination image.
     auto dstImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::RGBA_8_8_8_8_UNORM(), {w, h, 1})));
     auto dst      = dstImage.plane();
-    auto dstData  = (uint32_t *) dstImage.data();
-    for (uint32_t i = 0; i < dstImage.size() / 4; i++) { dstData[i] = 0; }
+    auto dstData  = (uint8_t *) dstImage.data();
+    for (uint8_t i = 0; i < dstImage.size(); i++) { dstData[i] = 0; }
 
     // source and destination should be identical after the copy.
     PlaneDesc::copyContent(dst, dstData, 0, 0, 0, src, srcData, 0, 0, 0, w, h, 1);
-    auto pitch  = dstImage.pitch();
-    auto height = dstImage.size() / pitch;
-    for (uint32_t y = 0; y < height; y++) {
-        for (uint32_t x = 0; x < (w * b) / 4; x++) {
-            INFO(rii_details::format("compare data at row %u offset %u", y, x));
-            REQUIRE(dstData[y * pitch + x] == srcData[y * pitch + x]);
+    auto pitch = dstImage.pitch();
+    for (uint32_t y = 0; y < h; y++) {
+        for (uint32_t x = 0; x < w; x++) {
+            auto offset = y * pitch + x * b;
+            INFO(rii_details::format("compare data x=%u y=%u offset=%u", x, y, offset));
+            REQUIRE(dstData[offset] == srcData[offset]);
         }
     }
 }
@@ -186,7 +186,7 @@ TEST_CASE("copy-compressed") {
     uint32_t h = 4;
     uint32_t b = 8; // bytes per pixel block
 
-    // Create a source 8x8 conpressed image
+    // Create a source 8x8 compressed image
     auto srcImage = Image(ImageDesc::make(PlaneDesc::make(PixelFormat::DXT1_UNORM(), {w, h, 1})));
     auto src      = srcImage.plane();
     auto srcData  = (uint32_t *) srcImage.data();
@@ -215,6 +215,17 @@ TEST_CASE("astc-smoke", "[astc]") {
     auto     plane          = PlaneDesc::make(PixelFormat::ASTC_6x6_UNORM(), {256, 256, 1});
     uint32_t compressedSize = ((256 + 5) / 6) * ((256 + 5) / 6) * 16; // ASTC block is always 16 bytes (128 bits)
     CHECK(compressedSize == plane.size);
+}
+
+TEST_CASE("aalloc") {
+    for (size_t i = 0; i < 10; ++i) {
+        size_t alignment = 1 << i;
+        size_t size      = 238; // a random size
+        auto   ptr       = rii_details::aalloc(alignment, size);
+        REQUIRE(ptr);
+        REQUIRE(0 == ((size_t) ptr % alignment));
+        rii_details::afree(ptr);
+    }
 }
 
 // TEST_CASE("save-to-png") {

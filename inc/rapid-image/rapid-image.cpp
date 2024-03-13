@@ -68,20 +68,88 @@ RII_API std::string format(const char * format, ...) {
     return buffer;
 }
 
-RII_API void * aalloc(size_t a, size_t s) {
-#ifdef _WIN32
-    return _aligned_malloc(s, a);
-#else
-    return aligned_alloc(a, s);
+// ---------------------------------------------------------------------------------------------------------------------
+/// @brief Calculate next multiple of a number.
+template<typename T>
+static constexpr inline T nextMultiple(T value, T multiple) {
+    if (0 == multiple)
+#if __cplusplus >= 202002L
+        [[unlikely]]
 #endif
+        multiple = 1;
+    return value + (multiple - value % multiple) % multiple;
+}
+static_assert(0 == nextMultiple(0, 3));
+static_assert(3 == nextMultiple(1, 3));
+static_assert(3 == nextMultiple(2, 3));
+static_assert(3 == nextMultiple(3, 3));
+static_assert(6 == nextMultiple(4, 3));
+static_assert(5 == nextMultiple(5, 0));
+
+// ---------------------------------------------------------------------------------------------------------------------
+// These 2 tag together is a GUID that is used to identify memory allocated by aalloc().
+constexpr uint64_t MEMORY_TAG1 = 0x63f3a6d25be665c0;
+constexpr uint64_t MEMORY_TAG2 = 0x60f098421dbb4e1e;
+struct MemHeader {
+    uint64_t offset; // offset from the user visible memory to the actual memory allocated.
+    uint64_t tag1;
+    uint64_t tag2;
+};
+
+/// We can't use system provided aligned_alloc because we might have alignment requirement that is not supported by the system.
+RII_API void * aalloc(size_t a, size_t s) {
+    // validate input parameter range.
+    constexpr size_t MAX_SIZE_AND_ALIGNMENT = (size_t(-1)) / 2; // to avoid overflow.
+    if (0 == a) a = 1;
+    if (0 == s) s = 1;
+    if (a >= MAX_SIZE_AND_ALIGNMENT || s >= MAX_SIZE_AND_ALIGNMENT) return nullptr;
+
+    // Need to allocate at least (sizeof(header) + a - 1) bytes to make sure we can align the address returned to user
+    // while still having enough space in front of user visible memory to store the header.
+    size_t additional = sizeof(MemHeader) + a - 1;
+    size_t totalSize  = additional + s;
+    void * p          = malloc(totalSize);
+    if (nullptr == p) {
+        RAPID_IMAGE_LOGE("failed to allocate aligned memory: alignment = %zu bytes, requested size = %zu bytes, total allocation = %zu.", a, s, totalSize);
+        return nullptr;
+    }
+    auto alignedAddress = nextMultiple((uintptr_t) p + sizeof(MemHeader), a);
+    RII_ASSERT(0 == (alignedAddress % a));                             // double check the alignment.
+    RII_ASSERT(alignedAddress >= ((uintptr_t) p + sizeof(MemHeader))); // double check we have enough space for the header.
+
+    auto result = (MemHeader *) (uintptr_t) alignedAddress;
+    auto header = result - 1;
+    RII_ASSERT(p <= header);
+    RII_ASSERT(((uint8_t *) result + s) <= ((uint8_t *) p + totalSize));
+
+    // fill the header.
+    header->offset = alignedAddress - (uintptr_t) p;
+    header->tag1   = MEMORY_TAG1;
+    header->tag2   = MEMORY_TAG2;
+    RII_ASSERT(header->offset >= sizeof(MemHeader));
+
+    // done
+    return result;
 }
 
 RII_API void afree(void * p) {
-#ifdef _WIN32
-    _aligned_free(p);
-#else
-    ::free(p);
-#endif
+    if (nullptr == p) return;
+
+    // get pointer to the header.
+    auto header = (MemHeader *) p - 1;
+
+    // check if the header is valid or not.
+    if (header->tag1 != MEMORY_TAG1 || header->tag2 != MEMORY_TAG2) {
+        // This is not an memory allocated by aalloc(). Just free it.
+        free(p);
+        return;
+    }
+
+    // Now get to the real pointer of the allocate memory
+    auto realAddress = (uintptr_t) p - (uintptr_t) header->offset;
+
+    // free the memory.
+    free((void *) realAddress);
 }
 
 static inline void clamp(int & value, int min_, int max_) {
@@ -800,23 +868,6 @@ RII_API PlaneDesc PlaneDesc::make(PixelFormat format, const Extent3D & extent, s
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-/// @brief Calculate next multiple of a number.
-static constexpr inline uint32_t nextMultiple(uint32_t value, uint32_t multiple) {
-    if (0 == multiple)
-#if __cplusplus >= 202002L
-        [[unlikely]]
-#endif
-        multiple = 1;
-    return value + (multiple - value % multiple) % multiple;
-}
-static_assert(0 == nextMultiple(0, 3));
-static_assert(3 == nextMultiple(1, 3));
-static_assert(3 == nextMultiple(2, 3));
-static_assert(3 == nextMultiple(3, 3));
-static_assert(6 == nextMultiple(4, 3));
-static_assert(5 == nextMultiple(5, 0));
-
-// ---------------------------------------------------------------------------------------------------------------------
 //
 RII_API PlaneDesc & PlaneDesc::setSpacing(size_t step_, size_t pitch_, size_t slice_, size_t alignment_) {
     RII_REQUIRE(format.valid(), "must call this after setting the pixel format.");
@@ -826,8 +877,8 @@ RII_API PlaneDesc & PlaneDesc::setSpacing(size_t step_, size_t pitch_, size_t sl
     auto numBlocksPerCol = (uint32_t) ((extent.h + fd.blockHeight - 1) / fd.blockHeight);
     alignment            = alignment_ ? (uint32_t) alignment_ : 4;
     step                 = std::max((uint32_t) step_, (uint32_t) (fd.blockBytes));
-    pitch                = nextMultiple(std::max<uint32_t>(step * numBlocksPerRow, (uint32_t) pitch_), alignment);
-    slice                = nextMultiple(std::max<uint32_t>(pitch * numBlocksPerCol, (uint32_t) slice_), alignment);
+    pitch                = rii_details::nextMultiple(std::max<uint32_t>(step * numBlocksPerRow, (uint32_t) pitch_), alignment);
+    slice                = rii_details::nextMultiple(std::max<uint32_t>(pitch * numBlocksPerCol, (uint32_t) slice_), alignment);
     size                 = slice * extent.d;
     return *this;
 }
@@ -1106,7 +1157,9 @@ void PlaneDesc::copyContent(const PlaneDesc & dstDesc, void * dstData, int dstX,
             RII_ASSERT((srcOffset + rowLength) <= srcDesc.size);
             RII_ASSERT(dstOffset <= dstDesc.size);
             RII_ASSERT((dstOffset + rowLength) <= dstDesc.size);
-            memcpy((uint8_t *) dstData + dstOffset, (uint8_t *) srcData + srcOffset, rowLength);
+            auto d = ((uint8_t *) dstData) + dstOffset;
+            auto s = ((uint8_t *) srcData) + srcOffset;
+            memcpy(d, s, rowLength);
         }
     }
 }
@@ -1665,7 +1718,7 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t arrayLength_, siz
             PlaneDesc mip = baseMap;
             for (uint32_t m = 0; m < levels_; ++m) {
                 for (size_t f = 0; f < faces; ++f) {
-                    mip.offset               = nextMultiple(offset, alignment);
+                    mip.offset               = rii_details::nextMultiple(offset, alignment);
                     planes[index({a, f, m})] = mip;
                     offset                   = mip.size + mip.offset;
                     RII_ASSERT(0 == (mip.offset % alignment));
@@ -1683,7 +1736,7 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t arrayLength_, siz
             for (uint32_t f = 0; f < faces; ++f) {
                 PlaneDesc mip = baseMap;
                 for (uint32_t m = 0; m < levels; ++m) {
-                    mip.offset             = nextMultiple(offset, alignment);
+                    mip.offset             = rii_details::nextMultiple(offset, alignment);
                     planes[index(a, f, m)] = mip;
                     offset                 = mip.offset + mip.size;
                     // next level
@@ -1893,14 +1946,22 @@ void ImageDesc::save(const std::string & filename, const void * pixels) const {
 //
 Image::Image(ImageDesc && desc, const void * initialContent, size_t initialContentSizeInbytes) {
     _proxy.desc = std::move(desc);
-    construct(initialContent, initialContentSizeInbytes);
+    if (!construct(initialContent, initialContentSizeInbytes)) {
+        _proxy.desc.clear();
+        _proxy.data = nullptr;
+        RII_ASSERT(empty());
+    }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
 Image::Image(const ImageDesc & desc, const void * initialContent, size_t initialContentSizeInbytes) {
-    _proxy.desc = std::move(desc);
-    construct(initialContent, initialContentSizeInbytes);
+    _proxy.desc = desc;
+    if (!construct(initialContent, initialContentSizeInbytes)) {
+        _proxy.desc.clear();
+        _proxy.data = nullptr;
+        RII_ASSERT(empty());
+    }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1914,7 +1975,7 @@ void Image::clear() {
 
 // ---------------------------------------------------------------------------------------------------------------------
 //
-void Image::construct(const void * initialContent, size_t initialContentSizeInbytes) {
+bool Image::construct(const void * initialContent, size_t initialContentSizeInbytes) {
     // clear old image data.
     rii_details::afree(_proxy.data);
     _proxy.data = nullptr;
@@ -1925,15 +1986,15 @@ void Image::construct(const void * initialContent, size_t initialContentSizeInby
         // But if we given an empty descriptor but non empty initial content, then it might imply that something
         // went wrong.
         if (initialContent && initialContentSizeInbytes) { RAPID_IMAGE_LOGW("constructing an empty image with non-empty content array"); }
-        return;
+        return true;
     }
 
     // (re)allocate pixel buffer
     size_t imageSize = size();
     _proxy.data      = (uint8_t *) rii_details::aalloc(_proxy.desc.alignment, imageSize);
     if (!_proxy.data) {
-        RAPID_IMAGE_LOGE("failed to construct image: out of memory.");
-        return;
+        RAPID_IMAGE_LOGE("failed to construct image: failed to allocate %zu bytes with %u bytes alignemnt.", imageSize, _proxy.desc.alignment);
+        return false;
     }
 
     // store the initial content
@@ -1945,6 +2006,9 @@ void Image::construct(const void * initialContent, size_t initialContentSizeInby
         }
         memcpy(_proxy.data, initialContent, std::min(imageSize, initialContentSizeInbytes));
     }
+
+    // done
+    return true;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
