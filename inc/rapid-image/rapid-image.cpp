@@ -91,10 +91,9 @@ static_assert(5 == nextMultiple(5, 0));
 constexpr uint64_t MEMORY_TAG1 = 0x63f3a6d25be665c0;
 constexpr uint64_t MEMORY_TAG2 = 0x60f098421dbb4e1e;
 struct MemHeader {
-    uint64_t       allocatedSize = 0; // size of the memory allocated including the header.
-    uint64_t       effectiveSize = 0; // size of the memory requested by the user.
-    const uint64_t tag1          = MEMORY_TAG1;
-    const uint64_t tag2          = MEMORY_TAG2;
+    uint64_t offset; // offset from the user visible memory to the actual memory allocated.
+    uint64_t tag1;
+    uint64_t tag2;
 };
 
 /// We can't use system provided aligned_alloc because we might have alignment requirement that is not supported by the system.
@@ -107,20 +106,27 @@ RII_API void * aalloc(size_t a, size_t s) {
 
     // Need to allocate at least (sizeof(header) + a - 1) bytes to make sure we can align the address returned to user
     // while still having enough space in front of user visible memory to store the header.
-    size_t totalSize = sizeof(MemHeader) + a - 1 + s;
-    void * p         = malloc(totalSize);
-    if (nullptr == p) return nullptr;
+    size_t additional = sizeof(MemHeader) + a - 1;
+    size_t totalSize  = additional + s;
+    void * p          = malloc(totalSize);
+    if (nullptr == p) {
+        RAPID_IMAGE_LOGE("failed to allocate aligned memory: alignment = %zu bytes, requested size = %zu bytes, total allocation = %zu.", a, s, totalSize);
+        return nullptr;
+    }
     auto alignedAddress = nextMultiple((uintptr_t) p + sizeof(MemHeader), a);
     RII_ASSERT(0 == (alignedAddress % a));                             // double check the alignment.
     RII_ASSERT(alignedAddress >= ((uintptr_t) p + sizeof(MemHeader))); // double check we have enough space for the header.
 
     auto result = (MemHeader *) (uintptr_t) alignedAddress;
     auto header = result - 1;
-    RII_ASSERT((uintptr_t) header >= (uintptr_t) p);
+    RII_ASSERT(p <= header);
+    RII_ASSERT(((uint8_t *) result + s) <= ((uint8_t *) p + totalSize));
 
     // fill the header.
-    header->allocatedSize = totalSize;
-    header->effectiveSize = s;
+    header->offset = alignedAddress - (uintptr_t) p;
+    header->tag1   = MEMORY_TAG1;
+    header->tag2   = MEMORY_TAG2;
+    RII_ASSERT(header->offset >= sizeof(MemHeader));
 
     // done
     return result;
@@ -138,18 +144,12 @@ RII_API void afree(void * p) {
         free(p);
         return;
     }
-    if (header->allocatedSize <= header->effectiveSize) {
-        // This is not an memory allocated by aalloc(). Just free it.
-        free(p);
-        return;
-    }
 
     // Now get to the real pointer of the allocate memory
-    auto offset      = header->allocatedSize - header->effectiveSize;
-    auto realAddress = (uint64_t) (uintptr_t) p - offset;
+    auto realAddress = (uintptr_t) p - (uintptr_t) header->offset;
 
     // free the memory.
-    free((void *) (uintptr_t) realAddress);
+    free((void *) realAddress);
 }
 
 static inline void clamp(int & value, int min_, int max_) {
@@ -1157,7 +1157,9 @@ void PlaneDesc::copyContent(const PlaneDesc & dstDesc, void * dstData, int dstX,
             RII_ASSERT((srcOffset + rowLength) <= srcDesc.size);
             RII_ASSERT(dstOffset <= dstDesc.size);
             RII_ASSERT((dstOffset + rowLength) <= dstDesc.size);
-            memcpy((uint8_t *) dstData + dstOffset, (uint8_t *) srcData + srcOffset, rowLength);
+            auto d = ((uint8_t *) dstData) + dstOffset;
+            auto s = ((uint8_t *) srcData) + srcOffset;
+            memcpy(d, s, rowLength);
         }
     }
 }

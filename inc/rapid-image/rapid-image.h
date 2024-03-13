@@ -42,7 +42,7 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 10
+#define RAPID_IMAGE_HEADER_REVISION 11
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
@@ -969,10 +969,10 @@ union RII_API PixelFormat {
     static constexpr PixelFormat DXN_SNORM()                   { return make(LAYOUT_DXN, SIGN_SNORM, SWIZZLE_XYZW); }
 
     static constexpr PixelFormat ETC2_UNORM()                  { return make(LAYOUT_ETC2, SIGN_UNORM, SWIZZLE_XYZ1); }
-    static constexpr PixelFormat ECT2_SGRB()                   { return make(LAYOUT_ETC2, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZ1); }
+    static constexpr PixelFormat ETC2_SRGB()                   { return make(LAYOUT_ETC2, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZ1); }
 
     static constexpr PixelFormat ETC2_EAC_UNORM()              { return make(LAYOUT_ETC2_EAC, SIGN_UNORM, SWIZZLE_XYZW); }
-    static constexpr PixelFormat ECT2_EAC_SGRB()               { return make(LAYOUT_ETC2_EAC, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
+    static constexpr PixelFormat ETC2_EAC_SRGB()               { return make(LAYOUT_ETC2_EAC, SIGN_GNORM, SIGN_UNORM, SWIZZLE_XYZW); }
 
     static constexpr PixelFormat ASTC_4x4_UNORM()              { return make(LAYOUT_ASTC_4x4,   SIGN_UNORM, SWIZZLE_XYZW); }
     static constexpr PixelFormat ASTC_5x4_UNORM()              { return make(LAYOUT_ASTC_5x4,   SIGN_UNORM, SWIZZLE_XYZW); }
