@@ -1,5 +1,5 @@
-# random-image
-A light weight header only (well, not really, you'll see) image library specializing on handling images used for GPU texturing, like 3D texture, cube map, mipmap chain and such.
+# rapid-image library
+A light weight header only image library specializing on handling images used for GPU texturing, like 3D texture, cube map, mipmap chain and such.
 
 # Why?
 You may ask why another image library, given there are already good ones like [std_image.h](https://github.com/nothings/stb/blob/master/stb_image.h).
@@ -45,7 +45,7 @@ struct PixelFormat {
 
 0        1          2               3         <- Byte number
 +------+-+----+-----+-----+-----+-----+-----+-----+     
-|Layout|-|S0  |S12  |S3   |S0   |S1   |S2   |S3   |
+|Layout|-|SI0 |SI12 |SI3  |SW0  |SW1  |SW2  |SW3  |
 +------+-+----+-----+-----+-----+-----+-----+-----+ 
 | 0-6  |7|8-11|12-15|16-18|19-21|22-24|25-27|28-31|
 ```
