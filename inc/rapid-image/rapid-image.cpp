@@ -1026,9 +1026,9 @@ RII_API Image PlaneDesc::generateMipmaps(const void * pixels, size_t maxLevels) 
     memcpy(result.data() + desc.planes[0].offset, pixels, desc.planes[0].desc.size);
 
     for (size_t i = 0; i < desc.planes.size(); ++i) {
-        auto [a, f, l] = desc.coord3(i);
+        auto [r, f, l] = desc.coord3(i);
         if (0 == l) continue; // skip the base map.
-        const auto & src = desc.planes[desc.index(a, f, l - 1)].desc;
+        const auto & src = desc.planes[desc.index(r, f, l - 1)].desc;
         const auto & dst = desc.planes[i].desc;
         Local::generateMipmap(result.data(), src, dst);
     }
@@ -1158,7 +1158,7 @@ struct RILHeaderV1 {
     uint32_t headerSize    = sizeof(RILHeaderV1);
     uint32_t planeDescSize = sizeof(ImageDesc::PlaneWithOffset);
     uint32_t offset        = sizeof(RILFileTag) + sizeof(RILHeaderV1); ///< offset to the plane array
-    uint32_t arrayLength   = 0;
+    uint32_t ranks         = 0;
     uint32_t faces         = 0;
     uint32_t levels        = 0;
     uint32_t alignment     = 0;
@@ -1168,7 +1168,7 @@ struct RILHeaderV1 {
         return headerSize == sizeof(RILHeaderV1) && planeDescSize == sizeof(ImageDesc::PlaneWithOffset) && offset == (sizeof(RILFileTag) + sizeof(RILHeaderV1));
     }
 
-    bool empty() const { return 0 == size || 0 == arrayLength || 0 == faces || 0 == levels; }
+    bool empty() const { return 0 == size || 0 == ranks || 0 == faces || 0 == levels; }
 };
 #pragma pack(pop)
 
@@ -1214,12 +1214,12 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromRIL(std::istream & stream, const 
         }
         // read image descriptor
         ImageDesc desc;
-        desc.arrayLength = header.arrayLength;
-        desc.faces       = header.faces;
-        desc.levels      = header.levels;
-        desc.size        = header.size;
-        desc.alignment   = header.alignment;
-        desc.planes      = std::vector<ImageDesc::PlaneWithOffset>(header.arrayLength * header.faces * header.levels);
+        desc.ranks     = header.ranks;
+        desc.faces     = header.faces;
+        desc.levels    = header.levels;
+        desc.size      = header.size;
+        desc.alignment = header.alignment;
+        desc.planes    = std::vector<ImageDesc::PlaneWithOffset>(header.ranks * header.faces * header.levels);
         if (!checkedRead(stream, name, "read image planes", desc.planes.data(), desc.planes.size() * sizeof(ImageDesc::PlaneWithOffset))) return {};
         if (!desc.valid()) {
             RAPID_IMAGE_LOGE("failed to read image from stream (%s): Invalid image descriptor.", name);
@@ -1252,11 +1252,11 @@ static void saveToRIL(const ImageDesc & desc, std::ostream & stream, const void 
 
     // write file header
     RILHeaderV1 header;
-    header.size        = desc.size;
-    header.arrayLength = desc.arrayLength;
-    header.faces       = desc.faces;
-    header.levels      = desc.levels;
-    header.alignment   = desc.alignment;
+    header.size      = desc.size;
+    header.ranks     = desc.ranks;
+    header.faces     = desc.faces;
+    header.levels    = desc.levels;
+    header.alignment = desc.alignment;
     stream.write((const char *) &header, sizeof(header));
 
     // write plane array
@@ -1561,12 +1561,12 @@ static void saveToDDS(const ImageDesc &, std::ostream &, const void *) {
 // ---------------------------------------------------------------------------------------------------------------------
 //
 ImageDesc::ImageDesc(ImageDesc && rhs) {
-    planes      = std::move(rhs.planes);
-    arrayLength = rhs.arrayLength;
-    faces       = rhs.faces;
-    levels      = rhs.levels;
-    size        = rhs.size;
-    alignment   = rhs.alignment;
+    planes    = std::move(rhs.planes);
+    ranks     = rhs.ranks;
+    faces     = rhs.faces;
+    levels    = rhs.levels;
+    size      = rhs.size;
+    alignment = rhs.alignment;
     rhs.clear();
     RII_ASSERT(rhs.empty());
 }
@@ -1575,12 +1575,12 @@ ImageDesc::ImageDesc(ImageDesc && rhs) {
 //
 ImageDesc & ImageDesc::operator=(ImageDesc && rhs) {
     if (this != &rhs) {
-        planes      = std::move(rhs.planes);
-        arrayLength = rhs.arrayLength;
-        faces       = rhs.faces;
-        levels      = rhs.levels;
-        size        = rhs.size;
-        alignment   = rhs.alignment;
+        planes    = std::move(rhs.planes);
+        ranks     = rhs.ranks;
+        faces     = rhs.faces;
+        levels    = rhs.levels;
+        size      = rhs.size;
+        alignment = rhs.alignment;
         rhs.clear();
         RII_ASSERT(rhs.empty());
     }
@@ -1591,11 +1591,11 @@ ImageDesc & ImageDesc::operator=(ImageDesc && rhs) {
 //
 ImageDesc & ImageDesc::clear() {
     planes.clear();
-    arrayLength = 0;
-    faces       = 0;
-    levels      = 0;
-    size        = 0;
-    alignment   = DEFAULT_PLANE_ALIGNMENT;
+    ranks     = 0;
+    faces     = 0;
+    levels    = 0;
+    size      = 0;
+    alignment = DEFAULT_PLANE_ALIGNMENT;
     return *this;
 }
 
@@ -1604,7 +1604,7 @@ ImageDesc & ImageDesc::clear() {
 bool ImageDesc::valid() const {
     if (planes.size() == 0) {
         // supposed to be an empty descriptor
-        if (0 != levels || 0 != faces || 0 != arrayLength || 0 != size) {
+        if (0 != levels || 0 != faces || 0 != ranks || 0 != size) {
             RAPID_IMAGE_LOGE("empty descriptor should have zero on all members variables.");
             return false;
         } else {
@@ -1619,8 +1619,8 @@ bool ImageDesc::valid() const {
     }
 
     // make sure plane size is correct.
-    if (arrayLength * faces * levels != planes.size()) {
-        RAPID_IMAGE_LOGE("image plane array size must be equal to (arrayLength * faces * levels)");
+    if (ranks * faces * levels != planes.size()) {
+        RAPID_IMAGE_LOGE("image plane array size must be equal to (ranks * faces * levels)");
         return false;
     }
 
@@ -1682,15 +1682,15 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t arrayLength_, siz
     }
 
     // build full mipmap chain
-    arrayLength = (uint32_t) arrayLength_;
-    faces       = (uint32_t) faces_;
-    levels      = (uint32_t) levels_;
-    alignment   = (uint32_t) alignment_;
+    ranks     = (uint32_t) arrayLength_;
+    faces     = (uint32_t) faces_;
+    levels    = (uint32_t) levels_;
+    alignment = (uint32_t) alignment_;
     planes.resize(arrayLength_ * faces_ * levels_);
     size_t offset = 0;
     if (MIP_MAJOR == order) {
         // In this mode, the outer loop is array and mipmap level, the inner loop is faces
-        for (uint32_t a = 0; a < arrayLength; ++a) {
+        for (uint32_t a = 0; a < ranks; ++a) {
             ImageDesc::PlaneWithOffset mip;
             mip.desc = baseMap;
             for (uint32_t m = 0; m < levels_; ++m) {
@@ -1709,7 +1709,7 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t arrayLength_, siz
         }
     } else {
         // In this mode, the outer loop is array and faces, the inner loop is mipmap levels
-        for (uint32_t a = 0; a < arrayLength; ++a) {
+        for (uint32_t a = 0; a < ranks; ++a) {
             for (uint32_t f = 0; f < faces; ++f) {
                 ImageDesc::PlaneWithOffset mip;
                 mip.desc = baseMap;
@@ -1845,7 +1845,7 @@ void ImageDesc::save(const SaveToStreamParameters & params, std::ostream & strea
     case PNG:
     case JPG:
     case BMP: {
-        if (arrayLength > 1 || faces > 1 || levels > 1) { RII_THROW("Can't save images with multiple layers and/or mipmaps to PNG/JPG/BMP format."); }
+        if (ranks > 1 || faces > 1 || levels > 1) { RII_THROW("Can't save images with multiple layers and/or mipmaps to PNG/JPG/BMP format."); }
         const auto & fd = format().layoutDesc();
         if (fd.blockWidth > 1 || fd.blockHeight > 1) { RII_THROW("Can't save block compressed images to PNG/JPG/BMP format."); }
 #ifdef INCLUDE_STB_IMAGE_WRITE_H
