@@ -809,10 +809,6 @@ RII_API bool PlaneDesc::valid() const {
         RAPID_IMAGE_LOGE("row alignment can't zero!");
         return false;
     }
-    if (offset % alignment) {
-        RAPID_IMAGE_LOGE("Offset is not aligned to the pixel block boundary.");
-        return false;
-    }
     if (pitch % alignment) {
         RAPID_IMAGE_LOGE("Pitch is not aligned to row alignment.");
         return false;
@@ -1027,14 +1023,13 @@ RII_API Image PlaneDesc::generateMipmaps(const void * pixels, size_t maxLevels) 
     const auto & desc   = result.desc();
 
     // Copy data into the base map of the result image.
-    auto & base = result.plane();
-    memcpy(result.data() + base.offset, pixels, base.size);
+    memcpy(result.data() + desc.planes[0].offset, pixels, desc.planes[0].desc.size);
 
     for (size_t i = 0; i < desc.planes.size(); ++i) {
         auto [a, f, l] = desc.coord3(i);
         if (0 == l) continue; // skip the base map.
-        const auto & src = desc.planes[desc.index(a, f, l - 1)];
-        const auto & dst = desc.planes[i];
+        const auto & src = desc.planes[desc.index(a, f, l - 1)].desc;
+        const auto & dst = desc.planes[i].desc;
         Local::generateMipmap(result.data(), src, dst);
     }
 
@@ -1132,8 +1127,8 @@ void PlaneDesc::copyContent(const PlaneDesc & dstDesc, void * dstData, int dstX,
     auto   bh        = dstLayout.blockHeight;
     for (int z = 0; z < nz; ++z) {
         for (int y = 0; y < ny; ++y) {
-            auto srcOffset = srcDesc.pixel(((size_t) sx1 * bw), ((size_t) (y + sy1) * bh), (size_t) (z + sz1)) - srcDesc.offset;
-            auto dstOffset = dstDesc.pixel(((size_t) dx1 * bw), ((size_t) (y + dy1) * bh), (size_t) (z + dz1)) - dstDesc.offset;
+            auto srcOffset = srcDesc.pixel(((size_t) sx1 * bw), ((size_t) (y + sy1) * bh), (size_t) (z + sz1));
+            auto dstOffset = dstDesc.pixel(((size_t) dx1 * bw), ((size_t) (y + dy1) * bh), (size_t) (z + dz1));
             RII_ASSERT(srcOffset <= srcDesc.size);
             RII_ASSERT((srcOffset + rowLength) <= srcDesc.size);
             RII_ASSERT(dstOffset <= dstDesc.size);
@@ -1160,17 +1155,17 @@ struct RILFileTag {
 
 struct RILHeaderV1 {
     /// this is to ensure that we don't change the layout of PlaneDesc accidentally w/o changing the file version number.
-    const uint32_t headerSize    = sizeof(RILHeaderV1);
-    const uint32_t planeDescSize = sizeof(PlaneDesc);
-    const uint32_t offset        = sizeof(RILFileTag) + sizeof(RILHeaderV1); ///< offset to the plane array
-    uint32_t       arrayLength   = 0;
-    uint32_t       faces         = 0;
-    uint32_t       levels        = 0;
-    uint32_t       alignment     = 0;
-    uint64_t       size          = 0; ///< total size of the pixel array.
+    uint32_t headerSize    = sizeof(RILHeaderV1);
+    uint32_t planeDescSize = sizeof(ImageDesc::PlaneWithOffset);
+    uint32_t offset        = sizeof(RILFileTag) + sizeof(RILHeaderV1); ///< offset to the plane array
+    uint32_t arrayLength   = 0;
+    uint32_t faces         = 0;
+    uint32_t levels        = 0;
+    uint32_t alignment     = 0;
+    uint64_t size          = 0; ///< total size of the pixel array.
 
     bool valid() const {
-        return headerSize == sizeof(RILHeaderV1) && planeDescSize == sizeof(PlaneDesc) && offset == (sizeof(RILFileTag) + sizeof(RILHeaderV1));
+        return headerSize == sizeof(RILHeaderV1) && planeDescSize == sizeof(ImageDesc::PlaneWithOffset) && offset == (sizeof(RILFileTag) + sizeof(RILHeaderV1));
     }
 
     bool empty() const { return 0 == size || 0 == arrayLength || 0 == faces || 0 == levels; }
@@ -1224,8 +1219,8 @@ ImageDesc::AlignedUniquePtr ImageDesc::loadFromRIL(std::istream & stream, const 
         desc.levels      = header.levels;
         desc.size        = header.size;
         desc.alignment   = header.alignment;
-        desc.planes      = std::vector<PlaneDesc>(header.arrayLength * header.faces * header.levels);
-        if (!checkedRead(stream, name, "read image planes", desc.planes.data(), desc.planes.size() * sizeof(PlaneDesc))) return {};
+        desc.planes      = std::vector<ImageDesc::PlaneWithOffset>(header.arrayLength * header.faces * header.levels);
+        if (!checkedRead(stream, name, "read image planes", desc.planes.data(), desc.planes.size() * sizeof(ImageDesc::PlaneWithOffset))) return {};
         if (!desc.valid()) {
             RAPID_IMAGE_LOGE("failed to read image from stream (%s): Invalid image descriptor.", name);
             return {};
@@ -1249,7 +1244,7 @@ static void saveToRIL(const ImageDesc & desc, std::ostream & stream, const void 
     if (!stream) { RII_THROW("failed to write image to stream: stream is not good."); }
     if (!pixels) { RII_THROW("failed to write image to stream: pixel array is null."); }
 
-    auto planeArraySize = desc.planes.size() * sizeof(PlaneDesc);
+    auto planeArraySize = desc.planes.size() * sizeof(desc.planes[0]);
 
     // write file tag
     RILFileTag tag(1);
@@ -1629,20 +1624,20 @@ bool ImageDesc::valid() const {
         return false;
     }
 
-    // check mipmaps
-    for (uint32_t a = 0; a < arrayLength; ++a) {
-        for (uint32_t f = 0; f < faces; ++f) {
-            for (uint32_t l = 0; l < levels; ++l) {
-                auto & m = plane({a, f, l});
-                if (!m.valid()) {
-                    RAPID_IMAGE_LOGE("image plane [%zu] is invalid", index({a, f, l}));
-                    return false;
-                }
-                if ((m.offset + m.size) > size) {
-                    RAPID_IMAGE_LOGE("image plane [%zu]'s (offset + size) is out of range.", index({a, f, l}));
-                    return false;
-                }
-            }
+    // check planes
+    for (size_t i = 0; i < planes.size(); ++i) {
+        auto & p = planes[i];
+        if (!p.desc.valid()) {
+            RAPID_IMAGE_LOGE("image plane [%zu] is invalid", i);
+            return false;
+        }
+        if (p.offset % alignment) {
+            RAPID_IMAGE_LOGE("Plane [%zu] offset is not aligned.", i);
+            return false;
+        }
+        if ((p.offset + p.desc.size) > size) {
+            RAPID_IMAGE_LOGE("image plane [%zu]'s (offset + size) is out of range.", i);
+            return false;
         }
     }
 
@@ -1692,39 +1687,41 @@ ImageDesc & ImageDesc::reset(const PlaneDesc & baseMap, size_t arrayLength_, siz
     levels      = (uint32_t) levels_;
     alignment   = (uint32_t) alignment_;
     planes.resize(arrayLength_ * faces_ * levels_);
-    uint32_t offset = 0;
+    size_t offset = 0;
     if (MIP_MAJOR == order) {
         // In this mode, the outer loop is array and mipmap level, the inner loop is faces
         for (uint32_t a = 0; a < arrayLength; ++a) {
-            PlaneDesc mip = baseMap;
+            ImageDesc::PlaneWithOffset mip;
+            mip.desc = baseMap;
             for (uint32_t m = 0; m < levels_; ++m) {
                 for (size_t f = 0; f < faces; ++f) {
-                    mip.offset               = rii_details::nextMultiple(offset, alignment);
+                    mip.offset               = rii_details::nextMultiple<size_t>(offset, alignment);
                     planes[index({a, f, m})] = mip;
-                    offset                   = mip.size + mip.offset;
+                    offset                   = mip.offset + mip.desc.size;
                     RII_ASSERT(0 == (mip.offset % alignment));
                 }
                 // next level
-                if (mip.extent.w > 1) mip.extent.w >>= 1;
-                if (mip.extent.h > 1) mip.extent.h >>= 1;
-                if (mip.extent.d > 1) mip.extent.d >>= 1;
-                mip = PlaneDesc::make(mip.format, mip.extent, mip.step, 0, 0);
+                if (mip.desc.extent.w > 1) mip.desc.extent.w >>= 1;
+                if (mip.desc.extent.h > 1) mip.desc.extent.h >>= 1;
+                if (mip.desc.extent.d > 1) mip.desc.extent.d >>= 1;
+                mip.desc = PlaneDesc::make(mip.desc.format, mip.desc.extent, mip.desc.step, 0, 0);
             }
         }
     } else {
         // In this mode, the outer loop is array and faces, the inner loop is mipmap levels
         for (uint32_t a = 0; a < arrayLength; ++a) {
             for (uint32_t f = 0; f < faces; ++f) {
-                PlaneDesc mip = baseMap;
+                ImageDesc::PlaneWithOffset mip;
+                mip.desc = baseMap;
                 for (uint32_t m = 0; m < levels; ++m) {
-                    mip.offset             = rii_details::nextMultiple(offset, alignment);
+                    mip.offset             = rii_details::nextMultiple<size_t>(offset, alignment);
                     planes[index(a, f, m)] = mip;
-                    offset                 = mip.offset + mip.size;
+                    offset                 = mip.offset + mip.desc.size;
                     // next level
-                    if (mip.extent.w > 1) mip.extent.w >>= 1;
-                    if (mip.extent.h > 1) mip.extent.h >>= 1;
-                    if (mip.extent.d > 1) mip.extent.d >>= 1;
-                    mip = PlaneDesc::make(mip.format, mip.extent, mip.step, 0, 0);
+                    if (mip.desc.extent.w > 1) mip.desc.extent.w >>= 1;
+                    if (mip.desc.extent.h > 1) mip.desc.extent.h >>= 1;
+                    if (mip.desc.extent.d > 1) mip.desc.extent.d >>= 1;
+                    mip.desc = PlaneDesc::make(mip.desc.format, mip.desc.extent, mip.desc.step, 0, 0);
                 }
             }
         }

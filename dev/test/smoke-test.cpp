@@ -11,6 +11,10 @@
 #pragma clang diagnostic ignored "-Wc++98-compat"
 #endif
 
+#ifdef _MSC_VER
+#pragma warning(disable : 4201) // nonstandard extension used: nameless struct/union
+#endif
+
 using namespace ril;
 using namespace std::string_literals;
 
@@ -219,7 +223,7 @@ TEST_CASE("astc-smoke", "[astc]") {
 
 TEST_CASE("aalloc") {
     for (size_t i = 0; i < 10; ++i) {
-        size_t alignment = 1 << i;
+        size_t alignment = 1llu << i;
         size_t size      = 238; // a random size
         auto   ptr       = rii_details::aalloc(alignment, size);
         REQUIRE(ptr);

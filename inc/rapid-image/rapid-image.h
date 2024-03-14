@@ -237,6 +237,15 @@ RII_API void * aalloc(size_t a, size_t s);
 // \brief Free memory allocated by aalloc().
 RII_API void afree(void * p);
 
+// Combine two hash values
+inline void hashCombine(std::size_t & seed, std::size_t value) { seed ^= value + 0x9e3779b9 + (seed << 6) + (seed >> 2); }
+
+// Combine multiple hash values
+template<typename... Args>
+inline void hashCombine(std::size_t & seed, std::size_t value, Args... args) {
+    hashCombine(seed, value);
+    hashCombine(seed, args...);
+}
 } // namespace rii_details
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1170,9 +1179,6 @@ struct RII_API PlaneDesc {
     /// Bytes of the whole plane. Minimal valid value is (slice * depth).
     uint32_t size = 0;
 
-    /// Bytes between first pixel of the plane to the first pixel of the whole image.
-    uint32_t offset = 0;
-
     /// Alignment requirement for each pixel (block) row. Default is 4 bytes.
     uint32_t alignment = 4;
 
@@ -1196,14 +1202,14 @@ struct RII_API PlaneDesc {
 
     PlaneDesc & setSpacing(size_t step_, size_t pitch_ = 0, size_t slice_ = 0, size_t alignment = 4);
 
-    /// returns offset from start of data buffer for a particular pixel within the plane
+    /// returns offset of a particular pixel within the plane
     size_t pixel(size_t x = 0, size_t y = 0, size_t z = 0) const {
         RII_ASSERT(x < extent.w && y < extent.h && z < extent.d);
         auto & ld = format.layoutDesc();
         RII_ASSERT((x % ld.blockWidth) == 0 && (y % ld.blockHeight) == 0);
         size_t r = z * slice + y / ld.blockHeight * pitch + x / ld.blockWidth * step;
         RII_ASSERT(r < size);
-        return r + offset;
+        return r;
     }
 
     /// check if this is a valid image plane descriptor. Note that valid descriptor is never empty.
@@ -1213,14 +1219,17 @@ struct RII_API PlaneDesc {
     bool empty() const { return PixelFormat::UNKNOWN() == format; }
 
     /// Convert the image plane to float4 format.
+    /// \param  src Pointer to the first pixel of the whole image (not the plane!)
     /// \return Pixel data in float4 format.
     std::vector<Float4> toFloat4(const void * src) const;
 
     /// Convert image plane to rgba8 format.
+    /// \param  src Pointer to the first pixel of the whole image (not the plane!)
     /// \return Pixel data in rgba8 format.
     std::vector<RGBA8> toRGBA8(const void * src) const;
 
     /// Load data to specific slice of image plane from float4 data.
+    /// \param  src Pointer to the first pixel of the whole image (not the plane!)
     void fromFloat4(void * dst, size_t dstSize, size_t dstZ, const void * src) const;
 
     /// @brief Generate full mipmap chain from this image plane.
@@ -1246,8 +1255,7 @@ struct RII_API PlaneDesc {
             && step   == rhs.step
             && pitch  == rhs.pitch
             && slice  == rhs.slice
-            && size   == rhs.size
-            && offset == rhs.offset;
+            && size   == rhs.size;
         // clang-format on
     }
 
@@ -1260,8 +1268,7 @@ struct RII_API PlaneDesc {
         if (step   != rhs.step)   return step   < rhs.step;
         if (pitch  != rhs.pitch)  return pitch  < rhs.pitch;
         if (slice  != rhs.slice)  return slice  < rhs.slice;
-        if (size   != rhs.size)   return size   < rhs.size;
-        return offset < rhs.offset;
+        return size   < rhs.size;
         // clang-format on
     }
 };
@@ -1328,6 +1335,16 @@ struct RII_API ImageDesc {
 
     //@{
 
+    struct PlaneWithOffset {
+        PlaneDesc desc {};   ///< The plane descriptor.
+        size_t    offset {}; ///< offset in bytes from the start of the image to the first pixel of the plane.
+
+        size_t pixel(size_t x = 0, size_t y = 0, size_t z = 0) const { return offset + desc.pixel(x, y, z); }
+
+        bool operator==(const PlaneWithOffset & rhs) const { return desc == rhs.desc && offset == rhs.offset; }
+        bool operator!=(const PlaneWithOffset & rhs) const { return !operator==(rhs); }
+    };
+
     /// @brief Image plane array.
     /// Length of the array should always be (levels * faces * arrayLength).
     /// The plane array is indexed by a 3D coordinate defined as [a, f, l], where a is the array index, f is the face index, l is the mipmap level.
@@ -1336,12 +1353,12 @@ struct RII_API ImageDesc {
     ///     a = planeIndex / (levels * faces)
     ///     f = (planeIndex / levels) % faces
     ///     l = planeIndex % levels
-    std::vector<PlaneDesc> planes;
-    uint32_t               arrayLength = 0; ///< length of image array. Default is 1 for non-array image.
-    uint32_t               faces       = 0; ///< number of faces. Default is 1. 6 for cubemap.
-    uint32_t               levels      = 0; ///< number of mipmap levels
-    uint32_t               alignment   = 0; ///< memory alignment requirement for each plane.
-    uint64_t               size        = 0; ///< total size in bytes of the whole image.
+    std::vector<PlaneWithOffset> planes;
+    uint32_t                     arrayLength = 0; ///< length of image array. Default is 1 for non-array image.
+    uint32_t                     faces       = 0; ///< number of faces. Default is 1. 6 for cubemap.
+    uint32_t                     levels      = 0; ///< number of mipmap levels
+    uint32_t                     alignment   = 0; ///< memory alignment requirement for each plane.
+    uint64_t                     size        = 0; ///< total size in bytes of the whole image.
 
     //@}
 
@@ -1457,16 +1474,17 @@ struct RII_API ImageDesc {
     /// methods to return properties of the specific plane.
     //@{
     // clang-format off
-    const PlaneDesc & plane (const PlaneCoord & p = {}) const { return planes[index(p)]; }
-    PlaneDesc       & plane (const PlaneCoord & p = {})       { return planes[index(p)]; }
-    PixelFormat       format(const PlaneCoord & p = {}) const { return planes[index(p)].format; }
-    const Extent3D &  extent(const PlaneCoord & p = {}) const { return planes[index(p)].extent; }
-    uint32_t          width (const PlaneCoord & p = {}) const { return planes[index(p)].extent.w; }
-    uint32_t          height(const PlaneCoord & p = {}) const { return planes[index(p)].extent.h; }
-    uint32_t          depth (const PlaneCoord & p = {}) const { return planes[index(p)].extent.d; }
-    uint32_t          step  (const PlaneCoord & p = {}) const { return planes[index(p)].step; }
-    uint32_t          pitch (const PlaneCoord & p = {}) const { return planes[index(p)].pitch; }
-    uint32_t          slice (const PlaneCoord & p = {}) const { return planes[index(p)].slice; }
+    const PlaneDesc & plane (const PlaneCoord & p = {}) const { return planes[index(p)].desc; }
+    PlaneDesc       & plane (const PlaneCoord & p = {})       { return planes[index(p)].desc; }
+    size_t            offset(const PlaneCoord & p = {}) const { return planes[index(p)].offset; }
+    PixelFormat       format(const PlaneCoord & p = {}) const { return planes[index(p)].desc.format; }
+    const Extent3D &  extent(const PlaneCoord & p = {}) const { return planes[index(p)].desc.extent; }
+    uint32_t          width (const PlaneCoord & p = {}) const { return planes[index(p)].desc.extent.w; }
+    uint32_t          height(const PlaneCoord & p = {}) const { return planes[index(p)].desc.extent.h; }
+    uint32_t          depth (const PlaneCoord & p = {}) const { return planes[index(p)].desc.extent.d; }
+    uint32_t          step  (const PlaneCoord & p = {}) const { return planes[index(p)].desc.step; }
+    uint32_t          pitch (const PlaneCoord & p = {}) const { return planes[index(p)].desc.pitch; }
+    uint32_t          slice (const PlaneCoord & p = {}) const { return planes[index(p)].desc.slice; }
     // clang-format on
     //@}
 
@@ -1581,7 +1599,8 @@ struct RII_API ImageDesc {
         for (size_t i = 0; i < planes.size(); ++i) {
             const auto & a = planes[i];
             const auto & b = rhs.planes[i];
-            if (a != b) return a < b;
+            if (a.desc != b.desc) return a.desc < b.desc;
+            if (a.offset != b.offset) return a.offset < b.offset;
         }
         return false;
     }
@@ -1701,6 +1720,7 @@ public:
     /// \name query properties of the specific plane.
     //@{
     // clang-format off
+    size_t           offset(const PlaneCoord & p = {}) const { return _proxy.desc.offset(p); }
     PixelFormat      format(const PlaneCoord & p = {}) const { return _proxy.desc.plane(p).format; }
     const Extent3D & extent(const PlaneCoord & p = {}) const { return _proxy.desc.plane(p).extent; }
     uint32_t         width (const PlaneCoord & p = {}) const { return _proxy.desc.plane(p).extent.w; }
@@ -1755,20 +1775,9 @@ template<>
 struct hash<RAPID_IMAGE_NAMESPACE::PlaneDesc> {
     size_t operator()(const RAPID_IMAGE_NAMESPACE::PlaneDesc & key) const {
         // Records the calculated hash of the texture handle.
-        size_t h = 7;
-
-        // Hash the members.
-        h = 79 * h + (size_t) key.format;
-        h = 79 * h + (size_t) key.extent.w;
-        h = 79 * h + (size_t) key.extent.h;
-        h = 79 * h + (size_t) key.extent.d;
-        h = 79 * h + (size_t) key.step;
-        h = 79 * h + (size_t) key.pitch;
-        h = 79 * h + (size_t) key.slice;
-        h = 79 * h + (size_t) key.size;
-        h = 79 * h + (size_t) key.offset;
-        h = 70 * h + (size_t) key.alignment;
-
+        size_t h = 0;
+        RAPID_IMAGE_NAMESPACE::rii_details::hashCombine(h, key.format, key.extent.w, key.extent.h, key.extent.d, key.step, key.pitch, key.slice, key.size,
+                                                        key.alignment);
         return h;
     }
 };
@@ -1777,21 +1786,10 @@ struct hash<RAPID_IMAGE_NAMESPACE::PlaneDesc> {
 template<>
 struct hash<RAPID_IMAGE_NAMESPACE::ImageDesc> {
     size_t operator()(const RAPID_IMAGE_NAMESPACE::ImageDesc & key) const {
-        // Records the calculated hash of the texture handle.
-        size_t h = 7;
-
-        // Hash the members.
-        h = 79 * h + (size_t) key.arrayLength;
-        h = 79 * h + (size_t) key.faces;
-        h = 79 * h + (size_t) key.levels;
-        h = 79 * h + (size_t) key.size;
-
-        /// Allows us to hash the planes.
+        size_t h = 0;
+        RAPID_IMAGE_NAMESPACE::rii_details::hashCombine(h, key.alignment, key.arrayLength, key.faces, key.levels, key.size);
         std::hash<RAPID_IMAGE_NAMESPACE::PlaneDesc> planeHasher;
-
-        // Calculate the hash of the planes.
-        for (const RAPID_IMAGE_NAMESPACE::PlaneDesc & plane : key.planes) { h = 79 * h + planeHasher(plane); }
-
+        for (const auto & plane : key.planes) { RAPID_IMAGE_NAMESPACE::rii_details::hashCombine(h, planeHasher(plane.desc), plane.offset); }
         return h;
     }
 };
