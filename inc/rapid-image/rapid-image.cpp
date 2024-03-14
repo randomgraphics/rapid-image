@@ -1155,17 +1155,17 @@ struct RILFileTag {
 
 struct RILHeaderV1 {
     /// this is to ensure that we don't change the layout of PlaneDesc accidentally w/o changing the file version number.
-    const uint32_t headerSize    = sizeof(RILHeaderV1);
-    const uint32_t planeDescSize = sizeof(PlaneDesc);
-    const uint32_t offset        = sizeof(RILFileTag) + sizeof(RILHeaderV1); ///< offset to the plane array
-    uint32_t       arrayLength   = 0;
-    uint32_t       faces         = 0;
-    uint32_t       levels        = 0;
-    uint32_t       alignment     = 0;
-    uint64_t       size          = 0; ///< total size of the pixel array.
+    uint32_t headerSize    = sizeof(RILHeaderV1);
+    uint32_t planeDescSize = sizeof(ImageDesc::PlaneWithOffset);
+    uint32_t offset        = sizeof(RILFileTag) + sizeof(RILHeaderV1); ///< offset to the plane array
+    uint32_t arrayLength   = 0;
+    uint32_t faces         = 0;
+    uint32_t levels        = 0;
+    uint32_t alignment     = 0;
+    uint64_t size          = 0; ///< total size of the pixel array.
 
     bool valid() const {
-        return headerSize == sizeof(RILHeaderV1) && planeDescSize == sizeof(PlaneDesc) && offset == (sizeof(RILFileTag) + sizeof(RILHeaderV1));
+        return headerSize == sizeof(RILHeaderV1) && planeDescSize == sizeof(ImageDesc::PlaneWithOffset) && offset == (sizeof(RILFileTag) + sizeof(RILHeaderV1));
     }
 
     bool empty() const { return 0 == size || 0 == arrayLength || 0 == faces || 0 == levels; }
@@ -1244,7 +1244,7 @@ static void saveToRIL(const ImageDesc & desc, std::ostream & stream, const void 
     if (!stream) { RII_THROW("failed to write image to stream: stream is not good."); }
     if (!pixels) { RII_THROW("failed to write image to stream: pixel array is null."); }
 
-    auto planeArraySize = desc.planes.size() * sizeof(PlaneDesc);
+    auto planeArraySize = desc.planes.size() * sizeof(desc.planes[0]);
 
     // write file tag
     RILFileTag tag(1);
