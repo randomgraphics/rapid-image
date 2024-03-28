@@ -42,7 +42,7 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 12
+#define RAPID_IMAGE_HEADER_REVISION 13
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
@@ -755,9 +755,6 @@ union RII_API PixelFormat {
 
     /// @brief Convert to DXGI_FORMAT
     uint32_t toDXGI() const;
-
-    /// @brief convert to bool
-    constexpr operator bool() const { return !empty(); }
 
     /// @brief equality check
     constexpr bool operator==(const PixelFormat & c) const { return u32 == c.u32; }
@@ -1775,7 +1772,7 @@ struct hash<RAPID_IMAGE_NAMESPACE::PlaneDesc> {
     size_t operator()(const RAPID_IMAGE_NAMESPACE::PlaneDesc & key) const {
         // Records the calculated hash of the texture handle.
         size_t h = 0;
-        RAPID_IMAGE_NAMESPACE::rii_details::hashCombine(h, key.format, key.extent.w, key.extent.h, key.extent.d, key.step, key.pitch, key.slice, key.size,
+        RAPID_IMAGE_NAMESPACE::rii_details::hashCombine(h, key.format.u32, key.extent.w, key.extent.h, key.extent.d, key.step, key.pitch, key.slice, key.size,
                                                         key.alignment);
         return h;
     }
