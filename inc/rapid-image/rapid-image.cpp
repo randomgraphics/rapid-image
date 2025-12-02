@@ -1875,7 +1875,7 @@ void ImageDesc::save(const SaveToStreamParameters & params, std::ostream & strea
 #endif
     }
     default:
-        RII_THROW("failed to save image to stream: unknown format %d", params.format);
+        RII_THROW("failed to save image to stream: unknown format %d", (int) params.format);
     }
     if (!stream) { RII_THROW("failed to save image to stream: the output stream is not in good state."); }
 }
