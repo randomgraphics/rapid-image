@@ -5,6 +5,7 @@
 #include <memory>
 #include <chrono>
 #include <thread>
+#include <unordered_map>
 
 #ifdef __clang__
 #pragma clang diagnostic ignored "-Wc++98-compat-pedantic"
