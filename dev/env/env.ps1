@@ -34,15 +34,6 @@ function catch_batch_env( $batch, $arg ) {
 }
 
 # ==============================================================================
-# Check Python support
-# ==============================================================================
-
-$py = [System.Version]$(python.exe -V).Substring(7)
-if ([System.Version]"3.6.0" -gt $py) {
-    warn "Python is not installed or current version ($py) is too low. Please upgrade to 3.8.0+ for best script compatibility."
-}
-
-# ==============================================================================
 # Define global functions
 # ==============================================================================
 
@@ -74,8 +65,40 @@ function global:prompt {
 # ==============================================================================
 
 # note: $RAPID_IMAGE_ROOT is a global variable that could be used in other places outside of this script.
-$global:RAPID_IMAGE_ROOT = split-path -parent $PSScriptRoot | split-path -parent
+$global:RAPID_IMAGE_ROOT = split-path -parent $PSScriptRoot | split-path -parent | resolve-path
 $env:RAPID_IMAGE_ROOT = $RAPID_IMAGE_ROOT
+
+# ==============================================================================
+# Check Python support
+# ==============================================================================
+
+$py = [System.Version]$(python.exe -V).Substring(7)
+if ([System.Version]"3.6.0" -gt $py) {
+    warn "Python is not installed or current version ($py) is too low. Please upgrade to 3.8.0+ for best script compatibility."
+}
+
+# Setup virtual python environment to ensure all pytong dependencies are installed.
+$venvPath = Join-Path $RAPID_IMAGE_ROOT ".pyvenv"
+$requirementsTxt = Join-Path $RAPID_IMAGE_ROOT "requirements.txt"
+$activatePath = Join-Path $venvPath "Scripts\Activate.ps1"
+if (-not (Test-Path $activatePath)) {
+    python -m venv $venvPath
+}
+if (Test-Path $activatePath) {
+    & $activatePath
+    python.exe -m pip install --upgrade pip
+    "Python virtual environment activated."
+    if (Test-Path $requirementsTxt) {
+        "Installing Python dependencies from $requirementsTxt"
+        pip install -r $requirementsTxt
+    }
+    else {
+        "Put your Python dependencies in $requirementsTxt"
+    }
+}
+else {
+    error "Python virtual environment could not be created at $venvPath"
+}
 
 # ==============================================================================
 # setup aliases
@@ -129,7 +152,7 @@ Set-PSReadlineOption -Colors @{
 # DONE
 # ==============================================================================
 
-write-host -ForegroundColor green "
+"
 Rapid Image build environment ready to use. Happy coding!
 
 RAPID_IMAGE_ROOT = $env:RAPID_IMAGE_ROOT

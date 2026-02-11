@@ -1766,6 +1766,12 @@ private:
 
 namespace std {
 
+/// A functor that allows for hashing pixel format.
+template<>
+struct hash<RAPID_IMAGE_NAMESPACE::PixelFormat> {
+    size_t operator()(const RAPID_IMAGE_NAMESPACE::PixelFormat & key) const { return hash<uint32_t>()(key.u32); }
+};
+
 /// A functor that allows for hashing image image plane desc.
 template<>
 struct hash<RAPID_IMAGE_NAMESPACE::PlaneDesc> {
