@@ -222,8 +222,7 @@ namespace rii_details {
 #if __clang__
 __attribute__((format(printf, 1, 2)))
 #endif
-RII_API std::string
-        format(const char * format, ...);
+RII_API std::string format(const char * format, ...);
 
 /// Overload of format() function for empty parameter list.
 inline std::string format() { return ""s; }

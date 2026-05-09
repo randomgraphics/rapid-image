@@ -326,7 +326,7 @@ static inline float toFloat(uint32_t value, uint32_t width, PixelFormat::Sign si
 //
 static inline PixelFormat::Sign getSign(const PixelFormat & format, size_t channel) {
     RII_ASSERT(channel < 4);
-    return (PixelFormat::Sign)((0 == channel) ? format.sign0 : (3 == channel) ? format.sign3 : format.sign12);
+    return (PixelFormat::Sign) ((0 == channel) ? format.sign0 : (3 == channel) ? format.sign3 : format.sign12);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -415,7 +415,7 @@ static void convertToRGBA8(RGBA8 * result, const PixelFormat::LayoutDesc & ld, c
 
 static inline PixelFormat::Swizzle getSwizzledChannel(const PixelFormat & format, size_t channel) {
     RII_ASSERT(channel < 4, "channel must be [0..3]");
-    return (PixelFormat::Swizzle)(format.u32 << (20 + channel * 3) & 0x7);
+    return (PixelFormat::Swizzle) (format.u32 << (20 + channel * 3) & 0x7);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -549,15 +549,14 @@ RII_API std::string PixelFormat::toString() const {
     struct Local {
         static inline const char * layout2str(size_t layout) {
             static const char * LAYOUT_STRING[] = {
-                "LAYOUT_UNKNOWN",     "LAYOUT_1",         "LAYOUT_2_2_2_2",    "LAYOUT_3_3_2",      "LAYOUT_4_4",         "LAYOUT_4_4_4_4",
-                "LAYOUT_5_5_5_1",     "LAYOUT_5_6_5",     "LAYOUT_8",          "LAYOUT_8_8",        "LAYOUT_8_8_8",       "LAYOUT_8_8_8_8",
-                "LAYOUT_10_11_11",    "LAYOUT_11_11_10",  "LAYOUT_10_10_10_2", "LAYOUT_16",         "LAYOUT_D16",         "LAYOUT_16_16",       "LAYOUT_16_16_16",
-                "LAYOUT_16_16_16_16", "LAYOUT_32",        "LAYOUT_D32",        "LAYOUT_32_32",      "LAYOUT_32_32_32",   "LAYOUT_32_32_32_32", "LAYOUT_24",
-                "LAYOUT_16_8",        "LAYOUT_24_8",        "LAYOUT_4_4_24",     "LAYOUT_32_8_24",    "LAYOUT_GRGB",        "LAYOUT_RGBG",
-                "LAYOUT_BC1",         "LAYOUT_BC2",       "LAYOUT_BC3",        "LAYOUT_BC4",        "LAYOUT_BC5",         "LAYOUT_BC6H",
-                "LAYOUT_BC7",         "LAYOUT_ETC2",      "LAYOUT_ETC2_EAC",   "LAYOUT_ASTC_4x4",   "LAYOUT_ASTC_5x4",    "LAYOUT_ASTC_5x5",
-                "LAYOUT_ASTC_6x5",    "LAYOUT_ASTC_6x6",  "LAYOUT_ASTC_8x5",   "LAYOUT_ASTC_8x6",   "LAYOUT_ASTC_8x8",    "LAYOUT_ASTC_10x5",
-                "LAYOUT_ASTC_10x6",   "LAYOUT_ASTC_10x8", "LAYOUT_ASTC_10x10", "LAYOUT_ASTC_12x10", "LAYOUT_ASTC_12x12",
+                "LAYOUT_UNKNOWN",    "LAYOUT_1",         "LAYOUT_2_2_2_2",   "LAYOUT_3_3_2",       "LAYOUT_4_4",        "LAYOUT_4_4_4_4",     "LAYOUT_5_5_5_1",
+                "LAYOUT_5_6_5",      "LAYOUT_8",         "LAYOUT_8_8",       "LAYOUT_8_8_8",       "LAYOUT_8_8_8_8",    "LAYOUT_10_11_11",    "LAYOUT_11_11_10",
+                "LAYOUT_10_10_10_2", "LAYOUT_16",        "LAYOUT_D16",       "LAYOUT_16_16",       "LAYOUT_16_16_16",   "LAYOUT_16_16_16_16", "LAYOUT_32",
+                "LAYOUT_D32",        "LAYOUT_32_32",     "LAYOUT_32_32_32",  "LAYOUT_32_32_32_32", "LAYOUT_24",         "LAYOUT_16_8",        "LAYOUT_24_8",
+                "LAYOUT_4_4_24",     "LAYOUT_32_8_24",   "LAYOUT_GRGB",      "LAYOUT_RGBG",        "LAYOUT_BC1",        "LAYOUT_BC2",         "LAYOUT_BC3",
+                "LAYOUT_BC4",        "LAYOUT_BC5",       "LAYOUT_BC6H",      "LAYOUT_BC7",         "LAYOUT_ETC2",       "LAYOUT_ETC2_EAC",    "LAYOUT_ASTC_4x4",
+                "LAYOUT_ASTC_5x4",   "LAYOUT_ASTC_5x5",  "LAYOUT_ASTC_6x5",  "LAYOUT_ASTC_6x6",    "LAYOUT_ASTC_8x5",   "LAYOUT_ASTC_8x6",    "LAYOUT_ASTC_8x8",
+                "LAYOUT_ASTC_10x5",  "LAYOUT_ASTC_10x6", "LAYOUT_ASTC_10x8", "LAYOUT_ASTC_10x10",  "LAYOUT_ASTC_12x10", "LAYOUT_ASTC_12x12",
             };
             static_assert(std::size(LAYOUT_STRING) == NUM_COLOR_LAYOUTS);
             return (layout < std::size(LAYOUT_STRING)) ? LAYOUT_STRING[layout] : "INVALID_LAYOUT";
@@ -1440,7 +1439,7 @@ static PixelFormat getPixelFormatFromDDPF(const DDPixelFormat & ddpf) {
 
     bool fourcc = !!(flags & DDS_DDPF_FOURCC);
     bool bits   = !!(flags & (DDS_DDPF_ALPHA | DDS_DDPF_PALETTEINDEXED8 | DDS_DDPF_RGB | DDS_DDPF_ZBUFFER | DDS_DDPF_STENCILBUFFER | DDS_DDPF_BUMPLUMINANCE |
-                            DDS_DDPF_BUMPDUDV));
+                              DDS_DDPF_BUMPDUDV));
     bool r      = !!(flags & (DDS_DDPF_RGB | DDS_DDPF_STENCILBUFFER | DDS_DDPF_LUMINANCE | DDS_DDPF_BUMPLUMINANCE | DDS_DDPF_BUMPDUDV));
     bool g      = !!(flags & (DDS_DDPF_RGB | DDS_DDPF_ZBUFFER | DDS_DDPF_STENCILBUFFER | DDS_DDPF_BUMPLUMINANCE | DDS_DDPF_BUMPDUDV));
     bool b      = !!(flags & (DDS_DDPF_RGB | DDS_DDPF_STENCILBUFFER | DDS_DDPF_BUMPLUMINANCE | DDS_DDPF_BUMPDUDV));

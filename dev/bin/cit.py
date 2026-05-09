@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import sys, subprocess, os, re, argparse
+import sys, subprocess, re, argparse, platform
 import importlib; utils = importlib.import_module("rapid-image-utils")
 
 def get_header_revision(content):
@@ -40,12 +40,17 @@ def run_style_check():
     diff = subprocess.check_output(["git", "diff", "-U0", "--no-color", git_remote + "/main", "--", ":!*3rd-party*"], cwd=sdk_root_dir)
 
     # determine the clang-format-diff command line
-    if "nt" == os.name:
-        diff_script = sdk_root_dir / "dev/bin/clang-format-diff-win.py"
-        clang_format = sdk_root_dir / "dev/bin/clang-format-14.exe"
+    diff_script = sdk_root_dir / "dev/bin/clang-format-diff.py"
+    system = platform.system()
+    if "Windows" == system:
+        clang_format = sdk_root_dir / "dev/bin/clang-format/clang-format-22.1.0.exe"
         cmdline = ["python.exe", str(diff_script.absolute()), "-p1", "-binary", str(clang_format.absolute())]
+    elif "Darwin" == system:
+        clang_format = sdk_root_dir / "dev/bin/clang-format/clang-format-22.1.0-apple"
+        cmdline = [str(diff_script.absolute()), "-p1", "-binary", str(clang_format.absolute())]
     else:
-        cmdline = ["clang-format-diff-14", "-p1"]
+        clang_format = sdk_root_dir / "dev/bin/clang-format/clang-format-22.1.0-x64-linux"
+        cmdline = [str(diff_script.absolute()), "-p1", "-binary", str(clang_format.absolute())]
 
     # check coding style of the diff
     format_diff = subprocess.check_output(cmdline, input=diff, cwd=sdk_root_dir).decode("utf-8")
