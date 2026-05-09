@@ -3,14 +3,14 @@ import sys, subprocess, re, argparse, platform
 import importlib; utils = importlib.import_module("rapid-image-utils")
 
 def get_header_revision(content):
-    m = re.search(r"#define RAPID_VULKAN_HEADER_REVISION (\d+)", content)
+    m = re.search(r"#define RAPID_IMAGE_HEADER_REVISION (\d+)", content)
     return int(m.group(1)) if m else 0
 
 def check_header_revision():
     print("Checking public header revision...", end="")
     sdk_root_dir = utils.get_root_folder()
     git_remote = subprocess.check_output(["git", "remote"], cwd=sdk_root_dir).decode(sys.stdout.encoding).strip()
-    header_path = "inc/rapid-vulkan/rapid-vulkan.h"
+    header_path = "inc/rapid-image/rapid-image.h"
     header_diff = subprocess.check_output(["git", "diff", "-U0", "--no-color", git_remote + "/main", "--", header_path], cwd=sdk_root_dir).decode(sys.stdout.encoding).strip()
     if 0 == len(header_diff):
         print("OK.")
