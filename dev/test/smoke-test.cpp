@@ -5,6 +5,7 @@
 #include <memory>
 #include <chrono>
 #include <thread>
+#include <unordered_map>
 
 #ifdef __clang__
 #pragma clang diagnostic ignored "-Wc++98-compat-pedantic"
@@ -17,6 +18,9 @@
 
 using namespace ril;
 using namespace std::string_literals;
+
+// make sure PixelFormat can be used as key for std::unordered_map
+std::unordered_map<PixelFormat, std::string> pixelFormatMap;
 
 TEST_CASE("pixel-size") {
     CHECK(8 == PixelFormat::A_8_UNORM().bitsPerPixel());
