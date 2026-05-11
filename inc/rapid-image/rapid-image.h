@@ -889,7 +889,7 @@ union RII_API PixelFormat {
 
     // 32-bit depth-stencil formats
     static constexpr PixelFormat DS_24_UNORM_8_UINT()          { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SIGN_UINT, SWIZZLE_DS00); }
-    static constexpr PixelFormat DX_24_UNORM_8_UINT()          { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SIGN_UINT, SWIZZLE_D000); }
+    static constexpr PixelFormat DX_24_8_UNORM()               { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SIGN_UINT, SWIZZLE_D000); }
 
     static constexpr PixelFormat GRGB_UNORM()                  { return make(LAYOUT_GRGB, SIGN_UNORM, SWIZZLE_XYZ1); }
     static constexpr PixelFormat RGBG_UNORM()                  { return make(LAYOUT_RGBG, SIGN_UNORM, SWIZZLE_XYZ1); }
