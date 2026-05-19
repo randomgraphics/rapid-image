@@ -460,7 +460,7 @@ inline static constexpr PixelFormat DXGI_FORMATS[] = {
     PixelFormat::RG_32_32_UINT(),          // DXGI_FORMAT_RG_32_32_UINT           = 17,
     PixelFormat::RG_32_32_SINT(),          // DXGI_FORMAT_RG_32_32_SINT           = 18,
     PixelFormat::RGX_32_8_24_UINT(),       // DXGI_FORMAT_RG_32_8X24_UINT         = 19,
-    PixelFormat::RGX_32_FLOAT_8_UINT_24(), // DXGI_FORMAT_D32_FLOAT_S8X24_UINT    = 20,
+    PixelFormat::DSX_32_FLOAT_8_UINT_24(), // DXGI_FORMAT_D32_FLOAT_S8X24_UINT    = 20,
     PixelFormat::RXX_32_8_24_FLOAT(),      // DXGI_FORMAT_R32_FLOAT_X8X24_UINT    = 21,
     PixelFormat::XGX_32_8_24_UINT(),       // DXGI_FORMAT_X32_UINT_G8X24_UINT     = 22,
     PixelFormat::RGBA_10_10_10_2_UINT(),   // DXGI_FORMAT_RGBA_10_10_10_2_UINT    = 23,
@@ -485,7 +485,7 @@ inline static constexpr PixelFormat DXGI_FORMATS[] = {
     PixelFormat::R_32_UINT(),              // DXGI_FORMAT_R32_UINT                = 42,
     PixelFormat::R_32_SINT(),              // DXGI_FORMAT_R32_SINT                = 43,
     PixelFormat::RG_24_8_UINT(),           // DXGI_FORMAT_RG_24_8_UINT            = 44,
-    PixelFormat::RG_24_UNORM_8_UINT(),     // DXGI_FORMAT_D24_UNORM_S8_UINT       = 45,
+    PixelFormat::DS_24_UNORM_8_UINT(),     // DXGI_FORMAT_D24_UNORM_S8_UINT       = 45,
     PixelFormat::RX_24_8_UNORM(),          // DXGI_FORMAT_R24_UNORM_X8_UINT       = 46,
     PixelFormat::XG_24_8_UINT(),           // DXGI_FORMAT_X24_UINT_G8_UINT        = 47,
     PixelFormat::RG_8_8_UINT(),            // DXGI_FORMAT_RG_8_8_UINT             = 48,
@@ -495,7 +495,7 @@ inline static constexpr PixelFormat DXGI_FORMATS[] = {
     PixelFormat::RG_8_8_SINT(),            // DXGI_FORMAT_RG_8_8_SINT             = 52,
     PixelFormat::R_16_UINT(),              // DXGI_FORMAT_R16_UINT                = 53,
     PixelFormat::R_16_FLOAT(),             // DXGI_FORMAT_R16_FLOAT               = 54,
-    PixelFormat::R_16_UNORM(),             // DXGI_FORMAT_D16_UNORM               = 55,
+    PixelFormat::D_16_UNORM(),             // DXGI_FORMAT_D16_UNORM               = 55,
     PixelFormat::R_16_UNORM(),             // DXGI_FORMAT_R16_UNORM               = 56,
     PixelFormat::R_16_UINT(),              // DXGI_FORMAT_R16_UINT                = 57,
     PixelFormat::R_16_SNORM(),             // DXGI_FORMAT_R16_SNORM               = 58,
@@ -549,14 +549,15 @@ RII_API std::string PixelFormat::toString() const {
     struct Local {
         static inline const char * layout2str(size_t layout) {
             static const char * LAYOUT_STRING[] = {
-                "LAYOUT_UNKNOWN",    "LAYOUT_1",         "LAYOUT_2_2_2_2",   "LAYOUT_3_3_2",       "LAYOUT_4_4",        "LAYOUT_4_4_4_4",     "LAYOUT_5_5_5_1",
-                "LAYOUT_5_6_5",      "LAYOUT_8",         "LAYOUT_8_8",       "LAYOUT_8_8_8",       "LAYOUT_8_8_8_8",    "LAYOUT_10_11_11",    "LAYOUT_11_11_10",
-                "LAYOUT_10_10_10_2", "LAYOUT_16",        "LAYOUT_D16",       "LAYOUT_16_16",       "LAYOUT_16_16_16",   "LAYOUT_16_16_16_16", "LAYOUT_32",
-                "LAYOUT_D32",        "LAYOUT_32_32",     "LAYOUT_32_32_32",  "LAYOUT_32_32_32_32", "LAYOUT_24",         "LAYOUT_16_8",        "LAYOUT_24_8",
-                "LAYOUT_4_4_24",     "LAYOUT_32_8_24",   "LAYOUT_GRGB",      "LAYOUT_RGBG",        "LAYOUT_BC1",        "LAYOUT_BC2",         "LAYOUT_BC3",
-                "LAYOUT_BC4",        "LAYOUT_BC5",       "LAYOUT_BC6H",      "LAYOUT_BC7",         "LAYOUT_ETC2",       "LAYOUT_ETC2_EAC",    "LAYOUT_ASTC_4x4",
-                "LAYOUT_ASTC_5x4",   "LAYOUT_ASTC_5x5",  "LAYOUT_ASTC_6x5",  "LAYOUT_ASTC_6x6",    "LAYOUT_ASTC_8x5",   "LAYOUT_ASTC_8x6",    "LAYOUT_ASTC_8x8",
-                "LAYOUT_ASTC_10x5",  "LAYOUT_ASTC_10x6", "LAYOUT_ASTC_10x8", "LAYOUT_ASTC_10x10",  "LAYOUT_ASTC_12x10", "LAYOUT_ASTC_12x12",
+                "LAYOUT_UNKNOWN",     "LAYOUT_1",         "LAYOUT_2_2_2_2",    "LAYOUT_3_3_2",      "LAYOUT_4_4",         "LAYOUT_4_4_4_4",
+                "LAYOUT_5_5_5_1",     "LAYOUT_5_6_5",     "LAYOUT_8",          "LAYOUT_8_8",        "LAYOUT_8_8_8",       "LAYOUT_8_8_8_8",
+                "LAYOUT_10_11_11",    "LAYOUT_11_11_10",  "LAYOUT_10_10_10_2", "LAYOUT_16",         "LAYOUT_16_16",       "LAYOUT_16_16_16",
+                "LAYOUT_16_16_16_16", "LAYOUT_32",        "LAYOUT_32_32",      "LAYOUT_32_32_32",   "LAYOUT_32_32_32_32", "LAYOUT_24",
+                "LAYOUT_16_8",        "LAYOUT_24_8",      "LAYOUT_4_4_24",     "LAYOUT_32_8_24",    "LAYOUT_GRGB",        "LAYOUT_RGBG",
+                "LAYOUT_BC1",         "LAYOUT_BC2",       "LAYOUT_BC3",        "LAYOUT_BC4",        "LAYOUT_BC5",         "LAYOUT_BC6H",
+                "LAYOUT_BC7",         "LAYOUT_ETC2",      "LAYOUT_ETC2_EAC",   "LAYOUT_ASTC_4x4",   "LAYOUT_ASTC_5x4",    "LAYOUT_ASTC_5x5",
+                "LAYOUT_ASTC_6x5",    "LAYOUT_ASTC_6x6",  "LAYOUT_ASTC_8x5",   "LAYOUT_ASTC_8x6",   "LAYOUT_ASTC_8x8",    "LAYOUT_ASTC_10x5",
+                "LAYOUT_ASTC_10x6",   "LAYOUT_ASTC_10x8", "LAYOUT_ASTC_10x10", "LAYOUT_ASTC_12x10", "LAYOUT_ASTC_12x12",
             };
             static_assert(std::size(LAYOUT_STRING) == NUM_COLOR_LAYOUTS);
             return (layout < std::size(LAYOUT_STRING)) ? LAYOUT_STRING[layout] : "INVALID_LAYOUT";

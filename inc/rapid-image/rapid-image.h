@@ -42,7 +42,7 @@ SOFTWARE.
 // User configurable macros
 
 /// A monotonically increasing number that uniquely identify the revision of the header.
-#define RAPID_IMAGE_HEADER_REVISION 14
+#define RAPID_IMAGE_HEADER_REVISION 15
 
 /// \def RAPID_IMAGE_NAMESPACE
 /// Define the namespace of rapid-image library. Default value is ril, standing for Rapid Image Library
@@ -472,12 +472,10 @@ union RII_API PixelFormat {
         LAYOUT_11_11_10,
         LAYOUT_10_10_10_2,
         LAYOUT_16,
-        LAYOUT_D16, // same as LAYOUT_16 but with depth semantics. This is to differentiate R16 and D16 format used by some APIs.
         LAYOUT_16_16,
         LAYOUT_16_16_16,
         LAYOUT_16_16_16_16,
         LAYOUT_32,
-        LAYOUT_D32, // same as LAYOUT_32 but with depth semantics. This is to differentiate R32 and D32 format used by some APIs.
         LAYOUT_32_32,
         LAYOUT_32_32_32,
         LAYOUT_32_32_32_32,
@@ -559,12 +557,10 @@ union RII_API PixelFormat {
         { 1 , 1 , 4  , 3 , { { 0 , 11 }, { 11 , 11 }, { 22 , 10 }, { 0  , 0  } } }, //LAYOUT_11_11_10,
         { 1 , 1 , 4  , 4 , { { 0 , 10 }, { 10 , 10 }, { 20 , 10 }, { 30 , 2  } } }, //LAYOUT_10_10_10_2,
         { 1 , 1 , 2  , 1 , { { 0 , 16 }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_16,
-        { 1 , 1 , 2  , 1 , { { 0 , 16 }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_16D,
         { 1 , 1 , 4  , 2 , { { 0 , 16 }, { 16 , 16 }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_16_16,
         { 1 , 1 , 4  , 3 , { { 0 , 16 }, { 16 , 16 }, { 32 , 1  }, { 0  , 0  } } }, //LAYOUT_16_16_16,
         { 1 , 1 , 8  , 4 , { { 0 , 16 }, { 16 , 16 }, { 32 , 16 }, { 48 , 1  } } }, //LAYOUT_16_16_16_16,
         { 1 , 1 , 4  , 1 , { { 0 , 32 }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_32,
-        { 1 , 1 , 4  , 1 , { { 0 , 32 }, { 0  , 0  }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_D32,
         { 1 , 1 , 8  , 2 , { { 0 , 32 }, { 32 , 32 }, { 0  , 0  }, { 0  , 0  } } }, //LAYOUT_32_32,
         { 1 , 1 , 12 , 3 , { { 0 , 32 }, { 32 , 32 }, { 64 , 32 }, { 0  , 0  } } }, //LAYOUT_32_32_32,
         { 1 , 1 , 16 , 4 , { { 0 , 32 }, { 32 , 32 }, { 64 , 32 }, { 96 , 32 } } }, //LAYOUT_32_32_32_32,
@@ -629,6 +625,8 @@ union RII_API PixelFormat {
         SWIZZLE_W = 3,
         SWIZZLE_0 = 4,
         SWIZZLE_1 = 5,
+        SWIZZLE_D = 6, // depth channel.
+        SWIZZLE_S = 7, // stencil channel.
     };
 
     /// @brief Swizzle for all 4 channels.
@@ -646,6 +644,9 @@ union RII_API PixelFormat {
         SWIZZLE_111X = (5 << 0) | (5 << 3) | (5 << 6) | (0 << 9),
         SWIZZLE_0Y00 = (0 << 0) | (1 << 3) | (4 << 6) | (4 << 9),
         SWIZZLE_0Y01 = (0 << 0) | (1 << 3) | (4 << 6) | (5 << 9),
+        SWIZZLE_D000 = (6 << 0) | (4 << 3) | (4 << 6) | (4 << 9),
+        SWIZZLE_S000 = (7 << 0) | (4 << 3) | (4 << 6) | (4 << 9),
+        SWIZZLE_DS00 = (6 << 0) | (7 << 3) | (4 << 6) | (4 << 9),
     };
 
     /// @brief Construct pixel format from individual properties.
@@ -782,6 +783,7 @@ union RII_API PixelFormat {
     static constexpr PixelFormat R_8_SINT()                    { return make(LAYOUT_8, SIGN_SINT,  SWIZZLE_X001); }
     static constexpr PixelFormat L_8_UNORM()                   { return make(LAYOUT_8, SIGN_UNORM, SWIZZLE_XXX1); }
     static constexpr PixelFormat A_8_UNORM()                   { return make(LAYOUT_8, SIGN_UNORM, SWIZZLE_111X); }
+    static constexpr PixelFormat S_8_UNORM()                   { return make(LAYOUT_8, SIGN_UINT,  SWIZZLE_S000); }
     static constexpr PixelFormat RGB_3_3_2_UNORM()             { return make(LAYOUT_3_3_2, SIGN_UNORM, SWIZZLE_XYZ1); }
     static constexpr PixelFormat BGR_3_3_2_UNORM()             { return make(LAYOUT_3_3_2, SIGN_UNORM, SWIZZLE_ZYX1); }
 
@@ -812,7 +814,7 @@ union RII_API PixelFormat {
 
     static constexpr PixelFormat L_16_UNORM()                  { return make(LAYOUT_16, SIGN_UNORM, SWIZZLE_XXX1); }
 
-    static constexpr PixelFormat D_16_UNORM()                  { return make(LAYOUT_D16, SIGN_UNORM, SWIZZLE_X001); }
+    static constexpr PixelFormat D_16_UNORM()                  { return make(LAYOUT_16, SIGN_UNORM, SWIZZLE_D000); }
 
     // 24 bits
     static constexpr PixelFormat RGB_8_8_8_UNORM()             { return make(LAYOUT_8_8_8, SIGN_UNORM, SWIZZLE_XYZ1); }
@@ -872,7 +874,7 @@ union RII_API PixelFormat {
     static constexpr PixelFormat R_32_UINT()                   { return make(LAYOUT_32, SIGN_UINT , SWIZZLE_X001); }
     static constexpr PixelFormat R_32_SINT()                   { return make(LAYOUT_32, SIGN_SINT , SWIZZLE_X001); }
     static constexpr PixelFormat R_32_FLOAT()                  { return make(LAYOUT_32, SIGN_FLOAT, SWIZZLE_X001); }
-    static constexpr PixelFormat D_32_FLOAT()                  { return make(LAYOUT_D32, SIGN_FLOAT, SWIZZLE_X001); }
+    static constexpr PixelFormat D_32_FLOAT()                  { return make(LAYOUT_32, SIGN_FLOAT, SWIZZLE_D000); }
     static constexpr PixelFormat UINT1N()                      { return R_32_UNORM(); }
     static constexpr PixelFormat INT1N()                       { return R_32_SNORM(); }
     static constexpr PixelFormat UINT1()                       { return R_32_UINT(); }
@@ -883,8 +885,11 @@ union RII_API PixelFormat {
     static constexpr PixelFormat RX_24_8_UNORM()               { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SIGN_UINT, SWIZZLE_X001); }
     static constexpr PixelFormat RG_24_8_UINT()                { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SIGN_UINT, SWIZZLE_XY01); }
     static constexpr PixelFormat XG_24_8_UINT()                { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SIGN_UINT, SWIZZLE_0Y01); }
-
     static constexpr PixelFormat RG_24_FLOAT_8_UINT()          { return make(LAYOUT_24_8, SIGN_FLOAT, SIGN_UINT, SIGN_UINT, SWIZZLE_XY01); }
+
+    // 32-bit depth-stencil formats
+    static constexpr PixelFormat DS_24_UNORM_8_UINT()          { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SIGN_UINT, SWIZZLE_DS00); }
+    static constexpr PixelFormat DX_24_8_UNORM()               { return make(LAYOUT_24_8, SIGN_UNORM, SIGN_UINT, SIGN_UINT, SWIZZLE_D000); }
 
     static constexpr PixelFormat GRGB_UNORM()                  { return make(LAYOUT_GRGB, SIGN_UNORM, SWIZZLE_XYZ1); }
     static constexpr PixelFormat RGBG_UNORM()                  { return make(LAYOUT_RGBG, SIGN_UNORM, SWIZZLE_XYZ1); }
@@ -926,6 +931,10 @@ union RII_API PixelFormat {
     static constexpr PixelFormat RXX_32_8_24_FLOAT()           { return make(LAYOUT_32_8_24, SIGN_FLOAT, SIGN_UINT, SIGN_UINT, SWIZZLE_X001); }
     static constexpr PixelFormat RGX_32_8_24_UINT()            { return make(LAYOUT_32_8_24, SIGN_UINT , SWIZZLE_XY01); }
     static constexpr PixelFormat XGX_32_8_24_UINT()            { return make(LAYOUT_32_8_24, SIGN_UINT , SWIZZLE_0Y01); }
+
+    // 64-bit depth-stencil formats
+    static constexpr PixelFormat DSX_32_FLOAT_8_UINT_24()      { return make(LAYOUT_32_8_24, SIGN_FLOAT, SIGN_UINT, SIGN_UINT, SWIZZLE_DS00); }
+    static constexpr PixelFormat DXX_32_FLOAT_8_UINT_24()      { return make(LAYOUT_32_8_24, SIGN_FLOAT, SIGN_UINT, SIGN_UINT, SWIZZLE_D000); }
 
     // 96 bits
     static constexpr PixelFormat RGB_32_32_32_UNORM()          { return make(LAYOUT_32_32_32, SIGN_UNORM, SWIZZLE_XYZ1); }
