@@ -1846,7 +1846,7 @@ void ImageDesc::save(const SaveToStreamParameters & params, std::ostream & strea
     case JPG:
     case BMP: {
         if (ranks > 1 || faces > 1 || levels > 1) { RII_THROW("Can't save images with multiple layers and/or mipmaps to PNG/JPG/BMP format."); }
-        const auto & fd = format().layoutDesc();
+        const auto fd = format().layoutDesc();
         if (fd.blockWidth > 1 || fd.blockHeight > 1) { RII_THROW("Can't save block compressed images to PNG/JPG/BMP format."); }
 #ifdef INCLUDE_STB_IMAGE_WRITE_H
         stbi_write_func * write = [](void * context, void * data, int size_) {
